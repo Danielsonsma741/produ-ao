@@ -767,27 +767,27 @@
                 
                 <div class="stats-container">
                     <div class="stat-card">
-                        <div class="stat-label">Produção Total Hoje</div>
-                        <div class="stat-value" id="totalToday">0</div>
-                        <div class="stat-label">unidades</div>
+                        <div class="stat-label">Bistro - Hoje</div>
+                        <div class="stat-value" id="totalTodayBistro">0</div>
+                        <div class="stat-label">Mês: <span id="monthBistro">0</span> | Eficiência: <span id="efficiencyBistro">0%</span></div>
                     </div>
                     
                     <div class="stat-card">
-                        <div class="stat-label">Operadores Ativos</div>
-                        <div class="stat-value" id="activeOperators">0</div>
-                        <div class="stat-label">pessoas</div>
+                        <div class="stat-label">Alegra - Hoje</div>
+                        <div class="stat-value" id="totalTodayAlegra">0</div>
+                        <div class="stat-label">Mês: <span id="monthAlegra">0</span> | Eficiência: <span id="efficiencyAlegra">0%</span></div>
                     </div>
                     
                     <div class="stat-card">
-                        <div class="stat-label">Eficiência de Produção</div>
-                        <div class="stat-value" id="efficiency">0%</div>
-                        <div class="stat-label">meta: 85%</div>
+                        <div class="stat-label">Folha - Hoje</div>
+                        <div class="stat-value" id="totalTodayFolha">0</div>
+                        <div class="stat-label">Mês: <span id="monthFolha">0</span> | Eficiência: <span id="efficiencyFolha">0%</span></div>
                     </div>
                     
                     <div class="stat-card">
-                        <div class="stat-label">Produção do Mês</div>
-                        <div class="stat-value" id="monthProduction">0</div>
-                        <div class="stat-label">unidades</div>
+                        <div class="stat-label">Coral - Hoje</div>
+                        <div class="stat-value" id="totalTodayCoral">0</div>
+                        <div class="stat-label">Mês: <span id="monthCoral">0</span> | Eficiência: <span id="efficiencyCoral">0%</span></div>
                     </div>
                 </div>
                 
@@ -1348,12 +1348,12 @@
                     tab.classList.add('hidden');
                 });
                 dashboardTab.classList.add('hidden');
-                historyTab.classList.add('hidden');
+                historyTab.classList.remove('hidden');
                 warningsTab.classList.remove('hidden');
                 
                 // Se estiver em uma aba escondida, redirecionar para register
                 const activeTab = document.querySelector('.tab.active');
-                if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') === 'dashboard' || activeTab.getAttribute('data-tab') === 'history')) {
+                if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') === 'dashboard')) {
                     switchTab('register');
                 }
             }
@@ -1468,6 +1468,7 @@
                     return b.createdAt.seconds - a.createdAt.seconds; // assuming timestamp
                 });
                 
+                console.log('Histórico carregado:', productionHistory.length, 'registros');
                 updateHistoryList();
                 document.getElementById('historyLoading').classList.add('hidden');
                 
@@ -1784,6 +1785,17 @@
             }
         };
         
+        // Função auxiliar para obter nome do modelo
+        function getModelName(model) {
+            const names = {
+                bistro: 'Cadeira Bistro',
+                alegra: 'Cadeira Alegra',
+                folha: 'Cadeira Folha',
+                coral: 'Cadeira Coral'
+            };
+            return names[model] || model;
+        }
+        
         // Atualizar lista de histórico
         function updateHistoryList() {
             const historyList = document.getElementById('productionHistory');
@@ -1936,46 +1948,65 @@
         
         // Atualizar dashboard
         function updateDashboard() {
-            // Calcular produção total de hoje
-            const d = new Date();
-            const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-            const todayProduction = productionHistory
-                .filter(record => record.date === today)
-                .reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            // Calcular produção de hoje por modelo
+            const today = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
             
-            document.getElementById('totalToday').textContent = todayProduction;
-            
-            // Calcular operadores ativos (com produção hoje)
-            const activeOps = new Set(productionHistory
-                .filter(record => record.date === today)
-                .map(record => record.operatorId));
-            
-            document.getElementById('activeOperators').textContent = activeOps.size;
-            
-            // Calcular eficiência (produção atual vs meta)
             const bistroTarget = systemSettings.bistroTarget || 50;
             const alegraTarget = systemSettings.alegraTarget || 40;
             const folhaTarget = systemSettings.folhaTarget || 30;
             const coralTarget = systemSettings.coralTarget || 20;
-            const totalTarget = bistroTarget + alegraTarget + folhaTarget + coralTarget;
-            const efficiency = todayProduction > 0 ? Math.min(Math.round((todayProduction / totalTarget) * 100), 100) : 0;
-            document.getElementById('efficiency').textContent = efficiency + '%';
             
-            // Atualizar meta no label
-            const efficiencyGoal = systemSettings.efficiencyGoal || 85;
-            document.querySelector('.stat-card:nth-child(3) .stat-label:last-child').textContent = `meta: ${efficiencyGoal}%`;
+            const totalTodayBistro = productionHistory.filter(record => record.date === today && record.model === 'bistro').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayAlegra = productionHistory.filter(record => record.date === today && record.model === 'alegra').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayFolha = productionHistory.filter(record => record.date === today && record.model === 'folha').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayCoral = productionHistory.filter(record => record.date === today && record.model === 'coral').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
-            // Atualizar estatísticas de produção do mês
+            // Calcular produção do mês por modelo
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
-            const monthProduction = productionHistory
-                .filter(record => {
-                    const recordDate = new Date(record.date);
-                    return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
-                })
-                .reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
-            document.getElementById('monthProduction').textContent = monthProduction;
+            const monthBistro = productionHistory.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'bistro';
+            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            
+            const monthAlegra = productionHistory.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'alegra';
+            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            
+            const monthFolha = productionHistory.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'folha';
+            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            
+            const monthCoral = productionHistory.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'coral';
+            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            
+            // Calcular eficiência por modelo
+            const efficiencyBistro = totalTodayBistro > 0 ? Math.min(Math.round((totalTodayBistro / bistroTarget) * 100), 100) : 0;
+            const efficiencyAlegra = totalTodayAlegra > 0 ? Math.min(Math.round((totalTodayAlegra / alegraTarget) * 100), 100) : 0;
+            const efficiencyFolha = totalTodayFolha > 0 ? Math.min(Math.round((totalTodayFolha / folhaTarget) * 100), 100) : 0;
+            const efficiencyCoral = totalTodayCoral > 0 ? Math.min(Math.round((totalTodayCoral / coralTarget) * 100), 100) : 0;
+            
+            // Atualizar interface
+            document.getElementById('totalTodayBistro').textContent = totalTodayBistro;
+            document.getElementById('monthBistro').textContent = monthBistro;
+            document.getElementById('efficiencyBistro').textContent = efficiencyBistro + '% (meta: ' + bistroTarget + ')';
+            
+            document.getElementById('totalTodayAlegra').textContent = totalTodayAlegra;
+            document.getElementById('monthAlegra').textContent = monthAlegra;
+            document.getElementById('efficiencyAlegra').textContent = efficiencyAlegra + '% (meta: ' + alegraTarget + ')';
+            
+            document.getElementById('totalTodayFolha').textContent = totalTodayFolha;
+            document.getElementById('monthFolha').textContent = monthFolha;
+            document.getElementById('efficiencyFolha').textContent = efficiencyFolha + '% (meta: ' + folhaTarget + ')';
+            
+            document.getElementById('totalTodayCoral').textContent = totalTodayCoral;
+            document.getElementById('monthCoral').textContent = monthCoral;
+            document.getElementById('efficiencyCoral').textContent = efficiencyCoral + '% (meta: ' + coralTarget + ')';
             
             // Atualizar gráficos
             updateCharts();
@@ -2035,11 +2066,12 @@
             // Dados para o gráfico de operadores
             const operatorData = {};
             productionHistory.forEach(record => {
-                operatorData[record.operatorId] = (operatorData[record.operatorId] || 0) + (record.quantity - (record.losses || 0));
+                const key = record.operatorName || record.operatorId;
+                operatorData[key] = (operatorData[key] || 0) + (record.quantity - (record.losses || 0));
             });
             
-            const operatorLabels = operators.map(op => op.name);
-            const operatorValues = operators.map(op => operatorData[op.id] || 0);
+            const operatorLabels = Object.keys(operatorData);
+            const operatorValues = Object.values(operatorData);
             
             // Gráfico de operadores
             const operatorCtx = document.getElementById('operatorChart').getContext('2d');
