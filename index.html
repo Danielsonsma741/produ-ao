@@ -804,6 +804,34 @@
                         <canvas id="operatorChart"></canvas>
                     </div>
                 </div>
+                
+                <div class="card">
+                    <h3 class="section-title">Produção por Operador - Bistro</h3>
+                    <div class="chart-container">
+                        <canvas id="bistroOperatorChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="section-title">Produção por Operador - Alegra</h3>
+                    <div class="chart-container">
+                        <canvas id="alegraOperatorChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="section-title">Produção por Operador - Folha</h3>
+                    <div class="chart-container">
+                        <canvas id="folhaOperatorChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3 class="section-title">Produção por Operador - Coral</h3>
+                    <div class="chart-container">
+                        <canvas id="coralOperatorChart"></canvas>
+                    </div>
+                </div>
             </div>
             
             <!-- Tab 3: Histórico -->
@@ -1021,7 +1049,7 @@
                                 <i class="fas fa-file-export"></i> Exportar para Excel
                             </button>
                             <button id="printReport" class="btn btn-secondary">
-                                <i class="fas fa-print"></i> Imprimir Relatório
+                                <i class="fas fa-eye"></i> Visualizar Relatório
                             </button>
                         </div>
                     </div>
@@ -2014,136 +2042,123 @@
         
         // Atualizar gráficos
         function updateCharts() {
-            // Dados para o gráfico de modelos
-            const modelData = {};
-            productionHistory.forEach(record => {
-                modelData[record.model] = (modelData[record.model] || 0) + (record.quantity - (record.losses || 0));
-            });
-            
-            const modelLabels = ['Bistro', 'Alegra', 'Folha', 'Coral'];
-            const modelValues = ['bistro', 'alegra', 'folha', 'coral'].map(key => modelData[key] || 0);
-            
-            // Gráfico de modelos
-            const modelCtx = document.getElementById('modelChart').getContext('2d');
-            
-            if (window.modelChart && typeof window.modelChart.destroy === 'function') {
-                window.modelChart.destroy();
+            // Helper: cores (ciclo)
+            const palette = ['#00a859','#6bc9a5','#ff6b6b','#4ecdc4','#ffe66d','#ff9a76','#a29bfe','#ffa69e','#7bd389'];
+
+            function colorForIndex(i) {
+                return palette[i % palette.length];
             }
-            
+
+            // Dados por modelo e por operador
+            const modelData = { bistro:0, alegra:0, folha:0, coral:0 };
+            const operatorData = {};
+            const operatorDataPerModel = { bistro: {}, alegra: {}, folha: {}, coral: {} };
+
+            productionHistory.forEach(record => {
+                const value = (record.quantity || 0) - (record.losses || 0);
+                if (!record.model) return;
+                modelData[record.model] = (modelData[record.model] || 0) + value;
+
+                const opKey = record.operatorName || record.operatorId || 'Desconhecido';
+                operatorData[opKey] = (operatorData[opKey] || 0) + value;
+
+                operatorDataPerModel[record.model] = operatorDataPerModel[record.model] || {};
+                operatorDataPerModel[record.model][opKey] = (operatorDataPerModel[record.model][opKey] || 0) + value;
+            });
+
+            // --- Gráfico de Modelos ---
+            const modelLabels = ['Bistro','Alegra','Folha','Coral'];
+            const modelValues = ['bistro','alegra','folha','coral'].map(k => modelData[k] || 0);
+
+            const modelCtx = document.getElementById('modelChart').getContext('2d');
+            if (window.modelChart && typeof window.modelChart.destroy === 'function') window.modelChart.destroy();
             try {
                 window.modelChart = new Chart(modelCtx, {
                     type: 'bar',
-                    data: {
-                        labels: modelLabels,
-                        datasets: [{
-                            label: 'Produção por Modelo',
-                            data: modelValues,
-                            backgroundColor: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#ff9a76'],
-                            borderColor: ['#ff5252', '#26a69a', '#ffd600', '#ff8a65'],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return value + ' unidades';
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    data: { labels: modelLabels, datasets: [{ label: 'Produção por Modelo', data: modelValues, backgroundColor: ['#ff6b6b','#4ecdc4','#ffe66d','#ff9a76'], borderColor: ['#ff5252','#26a69a','#ffd600','#ff8a65'], borderWidth:1 }] },
+                    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
                 });
-            } catch (error) {
-                console.error('Erro ao criar gráfico de modelos:', error);
-                window.modelChart = null;
-            }
-            
-            // Dados para o gráfico de operadores
-            const operatorData = {};
-            productionHistory.forEach(record => {
-                const key = record.operatorName || record.operatorId;
-                operatorData[key] = (operatorData[key] || 0) + (record.quantity - (record.losses || 0));
-            });
-            
+            } catch (e) { console.error('Erro modelChart', e); window.modelChart = null; }
+
+            // --- Gráfico geral de operadores ---
             const operatorLabels = Object.keys(operatorData);
             const operatorValues = Object.values(operatorData);
-            
-            // Gráfico de operadores
             const operatorCtx = document.getElementById('operatorChart').getContext('2d');
-            
-            if (window.operatorChart && typeof window.operatorChart.destroy === 'function') {
-                window.operatorChart.destroy();
-            }
-            
+            if (window.operatorChart && typeof window.operatorChart.destroy === 'function') window.operatorChart.destroy();
             try {
                 window.operatorChart = new Chart(operatorCtx, {
                     type: 'bar',
-                    data: {
-                        labels: operatorLabels,
-                        datasets: [{
-                            label: 'Produção por Operador',
-                            data: operatorValues,
-                            backgroundColor: [
-                                '#00a859',
-                                '#6bc9a5',
-                                '#ff6b6b',
-                                '#4ecdc4',
-                                '#ffe66d',
-                                '#ff9a76',
-                                '#a29bfe'
-                            ],
-                            borderColor: [
-                                '#007a4a',
-                                '#5aa085',
-                                '#ff5252',
-                                '#26a69a',
-                                '#ffd600',
-                                '#ff8a65',
-                                '#6c5ce7'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return value + ' unidades';
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    data: { labels: operatorLabels, datasets: [{ label: 'Produção por Operador', data: operatorValues, backgroundColor: operatorLabels.map((_,i)=>colorForIndex(i)), borderColor: operatorLabels.map((_,i)=>colorForIndex(i)), borderWidth:1 }] },
+                    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
                 });
-            } catch (error) {
-                console.error('Erro ao criar gráfico de operadores:', error);
-                window.operatorChart = null;
-            }
+            } catch (e) { console.error('Erro operatorChart', e); window.operatorChart = null; }
+
+            // --- Gráficos por operador por modelo ---
+            ['bistro','alegra','folha','coral'].forEach((modelKey) => {
+                const map = operatorDataPerModel[modelKey] || {};
+                const labels = Object.keys(map);
+                const values = Object.values(map);
+                const canvasId = modelKey + 'OperatorChart';
+                const ctx = document.getElementById(canvasId).getContext('2d');
+
+                const varName = modelKey + 'OperatorChart';
+                if (window[varName] && typeof window[varName].destroy === 'function') window[varName].destroy();
+
+                // Se não houver dados, mostrar um gráfico vazio com label informativo
+                const chartLabels = labels.length ? labels : ['Nenhum dado'];
+                const chartValues = values.length ? values : [0];
+
+                try {
+                    window[varName] = new Chart(ctx, {
+                        type: 'bar',
+                        data: { labels: chartLabels, datasets: [{ label: 'Produção - ' + getModelName(modelKey), data: chartValues, backgroundColor: chartLabels.map((_,i)=>colorForIndex(i)), borderColor: chartLabels.map((_,i)=>colorForIndex(i)), borderWidth:1 }] },
+                        options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
+                    });
+                } catch (e) { console.error('Erro em ' + canvasId, e); window[varName] = null; }
+            });
         }
         
         // Atualizar exibição de avisos para operadores
         function updateWarningsDisplay(warningsText) {
             const warningsCard = document.querySelector('#warnings .card');
+            // Limpar conteúdo atual
+            warningsCard.innerHTML = '';
+            const intro = document.createElement('p');
+            intro.textContent = 'Aqui você encontrará comunicados importantes da liderança sobre metas, procedimentos e atualizações.';
+            warningsCard.appendChild(intro);
+
             if (warningsText) {
                 const lines = warningsText.split('\n').filter(line => line.trim());
-                let html = '<ul style="margin-top: 20px;">';
+                const ul = document.createElement('ul');
+                ul.style.marginTop = '20px';
                 lines.forEach(line => {
-                    html += `<li>${line.trim()}</li>`;
+                    const li = document.createElement('li');
+                    li.textContent = line.trim();
+                    ul.appendChild(li);
                 });
-                html += '</ul>';
-                warningsCard.innerHTML = '<p>Aqui você encontrará comunicados importantes da liderança sobre metas, procedimentos e atualizações.</p>' + html;
+                warningsCard.appendChild(ul);
             } else {
-                warningsCard.innerHTML = '<p>Aqui você encontrará comunicados importantes da liderança sobre metas, procedimentos e atualizações.</p><p style="color: #666;">Nenhum aviso disponível no momento.</p>';
+                const none = document.createElement('p');
+                none.style.color = '#666';
+                none.textContent = 'Nenhum aviso disponível no momento.';
+                warningsCard.appendChild(none);
             }
+        }
+
+        // Escapa strings para uso seguro em HTML
+        function escapeHtml(str) {
+            return String(str).replace(/[&<>"'`=\/]/g, function(s) {
+                return ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                    '/': '&#x2F;',
+                    '`': '&#x60;',
+                    '=': '&#x3D;'
+                })[s];
+            });
         }
         
         function getErrorMessage(errorCode) {
@@ -2173,11 +2188,14 @@
                 font-weight: 600;
                 animation: slideIn 0.3s ease;
             `;
-            
-            notification.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                ${message}
-            `;
+            // Ícone
+            const icon = document.createElement('i');
+            icon.className = `fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}`;
+            icon.style.marginRight = '8px';
+            notification.appendChild(icon);
+
+            // Texto (usar text node para evitar injeção)
+            notification.appendChild(document.createTextNode(String(message)));
             
             document.body.appendChild(notification);
             
@@ -2437,71 +2455,42 @@
                 modelStats[record.model] = (modelStats[record.model] || 0) + (record.quantity - (record.losses || 0));
             });
             
-            // Gerar HTML do relatório
-            let reportHTML = `
-                <h3>Relatório de Produção</h3>
-                <p><strong>Período:</strong> ${startDate} a ${endDate}</p>
-                <p><strong>Total de registros:</strong> ${filteredData.length}</p>
-                <p><strong>Produção total:</strong> ${totalProduction} unidades</p>
-                <p><strong>Média diária:</strong> ${avgDailyProduction.toFixed(2)} unidades</p>
-                
-                <h4 style="margin-top: 20px;">Produção por Operador</h4>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Operador</th>
-                            <th>Produção Total</th>
-                            <th>Registros</th>
-                            <th>Média por Registro</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            Object.values(operatorStats).forEach(stat => {
-                reportHTML += `
-                    <tr>
-                        <td>${stat.name}</td>
-                        <td>${stat.total} unidades</td>
-                        <td>${stat.count}</td>
-                        <td>${(stat.total / stat.count).toFixed(2)} unidades</td>
-                    </tr>
-                `;
-            });
-            
-            reportHTML += `
+            // Gerar HTML do relatório de forma segura (escapando valores)
+            let reportHTML = '';
+            reportHTML += '<h3>Relatório de Produção</h3>';
+            reportHTML += '<p><strong>Período:</strong> ' + escapeHtml(startDate) + ' a ' + escapeHtml(endDate) + '</p>';
+            reportHTML += '<p><strong>Total de registros:</strong> ' + escapeHtml(filteredData.length) + '</p>';
+            reportHTML += '<p><strong>Produção total:</strong> ' + escapeHtml(totalProduction) + ' unidades</p>';
+            reportHTML += '<p><strong>Média diária:</strong> ' + escapeHtml(avgDailyProduction.toFixed(2)) + ' unidades</p>';
 
-                    </tbody>
-                </table>
-                
-                <h4 style="margin-top: 20px;">Produção por Modelo</h4>
-                <table class="admin-table">
-                    <thead>
-                        <tr>
-                            <th>Modelo</th>
-                            <th>Produção Total</th>
-                            <th>Percentual</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
+            reportHTML += '<h4 style="margin-top: 20px;">Produção por Operador</h4>';
+            reportHTML += '<table class="admin-table"><thead><tr><th>Operador</th><th>Produção Total</th><th>Registros</th><th>Média por Registro</th></tr></thead><tbody>';
+
+            Object.values(operatorStats).forEach(stat => {
+                reportHTML += '<tr>' +
+                    '<td>' + escapeHtml(stat.name) + '</td>' +
+                    '<td>' + escapeHtml(stat.total) + ' unidades</td>' +
+                    '<td>' + escapeHtml(stat.count) + '</td>' +
+                    '<td>' + escapeHtml((stat.total / stat.count).toFixed(2)) + ' unidades</td>' +
+                '</tr>';
+            });
+
+            reportHTML += '</tbody></table>';
+
+            reportHTML += '<h4 style="margin-top: 20px;">Produção por Modelo</h4>';
+            reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Produção Total</th><th>Percentual</th></tr></thead><tbody>';
+
             Object.entries(modelStats).forEach(([model, total]) => {
                 const percentage = total > 0 ? ((total / totalProduction) * 100).toFixed(1) : 0;
-                reportHTML += `
-                    <tr>
-                        <td>${getModelName(model)}</td>
-                        <td>${total} unidades</td>
-                        <td>${percentage}%</td>
-                    </tr>
-                `;
+                reportHTML += '<tr>' +
+                    '<td>' + escapeHtml(getModelName(model)) + '</td>' +
+                    '<td>' + escapeHtml(total) + ' unidades</td>' +
+                    '<td>' + escapeHtml(percentage) + '%</td>' +
+                '</tr>';
             });
-            
-            reportHTML += `
-                    </tbody>
-                </table>
-            `;
-            
+
+            reportHTML += '</tbody></table>';
+
             document.getElementById('reportResult').innerHTML = reportHTML;
             showNotification('Relatório gerado com sucesso!', 'success');
         });
@@ -2514,6 +2503,49 @@
             }
             
             showNotification('Funcionalidade de exportação em desenvolvimento.', 'info');
+        });
+
+        // Visualizar relatório em nova aba
+        document.getElementById('printReport').addEventListener('click', () => {
+            if (userRole !== 'admin') {
+                showNotification('Apenas administradores podem visualizar relatórios.', 'error');
+                return;
+            }
+
+            const resultEl = document.getElementById('reportResult');
+            const content = resultEl.innerHTML.trim();
+
+            if (!content || content.indexOf('Relatório de Produção') === -1) {
+                showNotification('Nenhum relatório disponível para visualização.', 'error');
+                return;
+            }
+
+            const win = window.open('', '_blank');
+            if (!win) {
+                showNotification('Não foi possível abrir nova aba. Verifique o bloqueador de pop-ups.', 'error');
+                return;
+            }
+
+            const doc = win.document;
+            doc.open();
+            doc.write(`<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Visualizar Relatório</title><meta name="viewport" content="width=device-width,initial-scale=1">
+                <style>
+                    body{font-family:sans-serif;padding:20px;color:#333}
+                    .admin-table{width:100%;border-collapse:collapse;margin-top:10px}
+                    .admin-table th{background:#f8f9fa;padding:12px 15px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e9ecef}
+                    .admin-table td{padding:12px 15px;border-bottom:1px solid #e9ecef}
+                    h3,h4{color:#00a859}
+                    .view-toolbar{display:flex;gap:10px;margin-bottom:20px}
+                    .view-toolbar button{background:#00a859;color:#fff;border:none;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:600}
+                    .view-toolbar button.secondary{background:#6c757d}
+                </style>
+            </head><body>` +
+                '<div class="view-toolbar">' +
+                    '<button onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>' +
+                    '<button class="secondary" onclick="window.close()">Fechar</button>' +
+                '</div>' +
+                content + '</body></html>');
+            doc.close();
         });
         
         // Buscar registro para edição
