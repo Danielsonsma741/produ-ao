@@ -1,6 +1,32 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+        <script>
+        // Garantir que o usuário permaneça logado após recarregar
+        document.addEventListener('DOMContentLoaded', function() {
+            firebase.auth().onAuthStateChanged(async function(user) {
+                if (user) {
+                    // Usuário autenticado, simular pós-login
+                    currentUser = user;
+                    // Buscar role do Firestore
+                    const userDocRef = db.collection('users').doc(user.uid);
+                    const userDoc = await userDocRef.get();
+                    userRole = userDoc.exists && userDoc.data().role ? userDoc.data().role : 'operador';
+                    document.getElementById('userName').textContent = user.email.split('@')[0];
+                    document.getElementById('userRole').textContent = userRole === 'admin' ? 'Administrador' : 'Operador';
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                    setupUserPermissions();
+                    loadSystemData();
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                } else {
+                    // Não autenticado, mostrar tela de login
+                    document.getElementById('mainApp').classList.add('hidden');
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                }
+            });
+        });
+        </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ambipar - Sistema de Produção</title>
@@ -1735,26 +1761,53 @@ if (mainTabs) {
                     .limit(200)
                     .get();
                 const docs = snapshot.docs.filter(doc => !doc.data().baixa);
-                // Agrupar por modelo e cor
-                const estoqueMap = {};
+                // Agrupar por modelo e cor (garantindo apenas uma linha por combinação)
+                const estoqueMap = new Map();
                 docs.forEach(doc => {
                     const item = doc.data();
                     const key = item.model + '|' + (item.color || '-');
-                    if (!estoqueMap[key]) {
-                        estoqueMap[key] = { model: item.model, color: item.color || '-', total: 0, docIds: [] };
+                    if (!estoqueMap.has(key)) {
+                        estoqueMap.set(key, { model: item.model, color: item.color || '-', total: 0, docIds: [] });
                     }
-                    estoqueMap[key].total += item.quantity || 0;
-                    estoqueMap[key].docIds.push(doc.id);
+                    const entry = estoqueMap.get(key);
+                    entry.total += item.quantity || 0;
+                    entry.docIds.push(doc.id);
                 });
-                const keys = Object.keys(estoqueMap);
-                if (keys.length === 0) {
+                if (estoqueMap.size === 0) {
                     estoqueList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:24px;">Nenhuma cadeira disponível no estoque.</td></tr>';
                     estoqueLoading.style.display = 'none';
                     return;
                 }
-                keys.forEach(key => {
-                    const item = estoqueMap[key];
+                estoqueMap.forEach(item => {
                     const row = document.createElement('tr');
+                    // Definir cor de fundo baseada na cor da cadeira
+                    let bgColor = item.color.toLowerCase();
+                    // Cores conhecidas para garantir contraste
+                    const coresConhecidas = ['preto','preta','vermelho','vermelha','azul','azul marinho','branco','branca','cinza','verde','amarelo','amarela','laranja','rosa','marrom','bege','terra cota','terracota'];
+                    if (!coresConhecidas.includes(bgColor)) {
+                        bgColor = '#f5f5f5'; // cor padrão caso não reconheça
+                    }
+                    // Ajustar nomes para cores CSS
+                    if (bgColor === 'preto' || bgColor === 'preta') bgColor = 'black';
+                    if (bgColor === 'vermelho' || bgColor === 'vermelha') bgColor = 'red';
+                    if (bgColor === 'azul marinho') bgColor = '#001f4d';
+                    if (bgColor === 'azul') bgColor = 'blue';
+                    if (bgColor === 'branco' || bgColor === 'branca') bgColor = 'white';
+                    if (bgColor === 'cinza') bgColor = 'gray';
+                    if (bgColor === 'verde') bgColor = 'green';
+                    if (bgColor === 'amarelo' || bgColor === 'amarela') bgColor = 'yellow';
+                    if (bgColor === 'laranja') bgColor = 'orange';
+                    if (bgColor === 'rosa') bgColor = 'pink';
+                    if (bgColor === 'marrom') bgColor = 'brown';
+                    if (bgColor === 'bege') bgColor = '#f5deb3';
+                    if (bgColor === 'terra cota' || bgColor === 'terracota') bgColor = '#b04a2b';
+                    row.style.background = bgColor;
+                    // Letras brancas se fundo preto, senão pretas
+                    if (bgColor === 'black') {
+                        row.style.color = 'white';
+                    } else {
+                        row.style.color = 'black';
+                    }
                     row.innerHTML = `
                         <td>${getModelName(item.model)}</td>
                         <td>${item.color}</td>
