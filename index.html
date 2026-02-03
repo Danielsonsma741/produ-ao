@@ -11,6 +11,29 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
+                .model-tabs {
+                    display: flex;
+                    gap: 10px;
+                    margin-bottom: 20px;
+                }
+                .model-tab {
+                    background: #fff;
+                    color: #008542;
+                    border: 2px solid #008542;
+                    border-radius: 6px 6px 0 0;
+                    padding: 10px 24px;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: background 0.2s, color 0.2s;
+                }
+                .model-tab.active {
+                    background: #008542;
+                    color: #fff;
+                }
+                .model-content {
+                    display: block;
+                }
         * {
             margin: 0;
             padding: 0;
@@ -71,7 +94,9 @@
         }
         
         .login-form label {
-            display: block;
+            display: none;
+                /* Exibe apenas o conteúdo do modelo selecionado */
+                display: block !important;
             margin-bottom: 8px;
             font-weight: 600;
             color: #555;
@@ -671,12 +696,18 @@
         
         <div class="container">
             <div class="tabs" id="mainTabs">
+                                <button class="tab" data-tab="producaoTotal">
+                                    <i class="fas fa-list-alt"></i> Produção Total
+                                </button>
                 <!-- Abas comuns (para todos os usuários) -->
                 <button class="tab" data-tab="register">
                     <i class="fas fa-plus-circle"></i> Registrar Produção
                 </button>
                 <button class="tab" data-tab="dashboard">
                     <i class="fas fa-chart-line"></i> Dashboard
+                </button>
+                <button class="tab" data-tab="estoque">
+                    <i class="fas fa-warehouse"></i> Estoque
                 </button>
                 <button class="tab" data-tab="history">
                     <i class="fas fa-history"></i> Histórico
@@ -703,6 +734,17 @@
                 
                 <div class="card">
                     <div class="form-row">
+                                                <div class="form-group">
+                                                    <label for="color"><i class="fas fa-palette"></i> Cor da Cadeira</label>
+                                                    <select id="color">
+                                                        <option value="">Selecione a cor</option>
+                                                        <option value="preto">Preto</option>
+                                                        <option value="branco">Branco</option>
+                                                        <option value="terra cota">Terra Cota</option>
+                                                        <option value="vermelho">Vermelho</option>
+                                                        <option value="bege">Bege</option>
+                                                    </select>
+                                                </div>
                         <div class="form-group">
                             <label for="operator"><i class="fas fa-user"></i> Operador</label>
                             <select id="operator">
@@ -764,77 +806,148 @@
             <!-- Tab 2: Dashboard -->
             <div id="dashboard" class="tab-content">
                 <h2 class="section-title"><i class="fas fa-chart-line"></i> Dashboard de Produção</h2>
-                
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <div class="stat-label">Bistro - Hoje</div>
-                        <div class="stat-value" id="totalTodayBistro">0</div>
-                        <div class="stat-label">Mês: <span id="monthBistro">0</span> | Eficiência: <span id="efficiencyBistro">0%</span></div>
+                <div class="model-tabs">
+                    <button class="model-tab active" data-model="bistro">Bistro</button>
+                    <button class="model-tab" data-model="alegra">Alegra</button>
+                    <button class="model-tab" data-model="folha">Folha</button>
+                    <button class="model-tab" data-model="coral">Coral</button>
+                </div>
+                <div class="model-content" id="bistro-content">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-label">Bistro - Hoje</div>
+                            <div class="stat-value" id="totalTodayBistro">0</div>
+                            <div class="stat-label">Mês: <span id="monthBistro">0</span> | Eficiência: <span id="efficiencyBistro">0%</span></div>
+                        </div>
                     </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-label">Alegra - Hoje</div>
-                        <div class="stat-value" id="totalTodayAlegra">0</div>
-                        <div class="stat-label">Mês: <span id="monthAlegra">0</span> | Eficiência: <span id="efficiencyAlegra">0%</span></div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-label">Folha - Hoje</div>
-                        <div class="stat-value" id="totalTodayFolha">0</div>
-                        <div class="stat-label">Mês: <span id="monthFolha">0</span> | Eficiência: <span id="efficiencyFolha">0%</span></div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-label">Coral - Hoje</div>
-                        <div class="stat-value" id="totalTodayCoral">0</div>
-                        <div class="stat-label">Mês: <span id="monthCoral">0</span> | Eficiência: <span id="efficiencyCoral">0%</span></div>
+                    <div class="card">
+                        <h3 class="section-title">Produção por Operador - Bistro</h3>
+                        <div class="chart-container">
+                            <canvas id="bistroOperatorChart"></canvas>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="card">
-                    <h3 class="section-title">Produção por Modelo</h3>
+                <div class="model-content" id="alegra-content" style="display:none;">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-label">Alegra - Hoje</div>
+                            <div class="stat-value" id="totalTodayAlegra">0</div>
+                            <div class="stat-label">Mês: <span id="monthAlegra">0</span> | Eficiência: <span id="efficiencyAlegra">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="section-title">Produção por Operador - Alegra</h3>
+                        <div class="chart-container">
+                            <canvas id="alegraOperatorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="model-content" id="folha-content" style="display:none;">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-label">Folha - Hoje</div>
+                            <div class="stat-value" id="totalTodayFolha">0</div>
+                            <div class="stat-label">Mês: <span id="monthFolha">0</span> | Eficiência: <span id="efficiencyFolha">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="section-title">Produção por Operador - Folha</h3>
+                        <div class="chart-container">
+                            <canvas id="folhaOperatorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="model-content" id="coral-content" style="display:none;">
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <div class="stat-label">Coral - Hoje</div>
+                            <div class="stat-value" id="totalTodayCoral">0</div>
+                            <div class="stat-label">Mês: <span id="monthCoral">0</span> | Eficiência: <span id="efficiencyCoral">0%</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="section-title">Produção por Operador - Coral</h3>
+                        <div class="chart-container">
+                            <canvas id="coralOperatorChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:32px;">
+                    <h3 class="section-title">Produção Total por Modelo</h3>
                     <div class="chart-container">
                         <canvas id="modelChart"></canvas>
                     </div>
                 </div>
-                
                 <div class="card">
-                    <h3 class="section-title">Produção por Operador</h3>
+                    <h3 class="section-title">Produção Total por Operador</h3>
                     <div class="chart-container">
                         <canvas id="operatorChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h3 class="section-title">Produção por Operador - Bistro</h3>
-                    <div class="chart-container">
-                        <canvas id="bistroOperatorChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h3 class="section-title">Produção por Operador - Alegra</h3>
-                    <div class="chart-container">
-                        <canvas id="alegraOperatorChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h3 class="section-title">Produção por Operador - Folha</h3>
-                    <div class="chart-container">
-                        <canvas id="folhaOperatorChart"></canvas>
-                    </div>
-                </div>
-                
-                <div class="card">
-                    <h3 class="section-title">Produção por Operador - Coral</h3>
-                    <div class="chart-container">
-                        <canvas id="coralOperatorChart"></canvas>
                     </div>
                 </div>
             </div>
             
             <!-- Tab 3: Histórico -->
+                        <!-- Tab Estoque: Gerenciar cadeiras produzidas e dar baixa -->
+                                    <!-- Tab Produção Total: Detalhamento geral -->
+                                    <div id="producaoTotal" class="tab-content">
+                                        <h2 class="section-title"><i class="fas fa-list-alt"></i> Produção Total de Cadeiras</h2>
+                                        <div class="card">
+                                            <h3 class="section-title">Resumo Geral por Modelo e Cor</h3>
+                                            <div id="producaoTotalLoading" class="loading" style="display:none;">
+                                                <i class="fas fa-spinner fa-spin"></i> Carregando produção total...
+                                            </div>
+                                            <table class="admin-table" id="producaoTotalTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Modelo</th>
+                                                        <th>Cor</th>
+                                                        <th>Quantidade</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="producaoTotalList">
+                                                    <!-- Produção total será carregada aqui -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="card">
+                                            <h3 class="section-title">Produção Individualizada</h3>
+                                            <table class="admin-table" id="producaoIndividualTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Operador</th>
+                                                        <th>Modelo</th>
+                                                        <th>Cor</th>
+                                                        <th>Quantidade</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="producaoIndividualList">
+                                                    <!-- Produção individualizada será carregada aqui -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                        <div id="estoque" class="tab-content">
+                            <h2 class="section-title"><i class="fas fa-warehouse"></i> Estoque de Cadeiras</h2>
+                            <div class="card">
+                                <h3 class="section-title">Cadeiras Disponíveis</h3>
+                                <div id="estoqueLoading" class="loading" style="display:none;">
+                                    <i class="fas fa-spinner fa-spin"></i> Carregando estoque...
+                                </div>
+                                <table class="admin-table" id="estoqueTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Modelo</th>
+                                            <th>Cor</th>
+                                            <th>Quantidade</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="estoqueList">
+                                        <!-- Itens de estoque serão carregados aqui -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
             <div id="history" class="tab-content">
                 <h2 class="section-title"><i class="fas fa-history"></i> Histórico de Produção</h2>
                 
@@ -1355,33 +1468,33 @@
             const dashboardTab = document.querySelector('.tab[data-tab="dashboard"]');
             const historyTab = document.querySelector('.tab[data-tab="history"]');
             const warningsTab = document.querySelector('.tab[data-tab="warnings"]');
-            
+            const producaoTotalTab = document.querySelector('.tab[data-tab="producaoTotal"]');
+            const estoqueTab = document.querySelector('.tab[data-tab="estoque"]');
+            const registerTab = document.querySelector('.tab[data-tab="register"]');
+
             if (userRole === 'admin') {
-                adminTabs.forEach(tab => {
-                    tab.classList.remove('hidden');
-                });
+                adminTabs.forEach(tab => tab.classList.remove('hidden'));
                 dashboardTab.classList.remove('hidden');
                 historyTab.classList.remove('hidden');
                 warningsTab.classList.add('hidden');
-                
+                producaoTotalTab.classList.remove('hidden');
+                estoqueTab.classList.remove('hidden');
+                registerTab.classList.remove('hidden');
                 // Remover avisos de permissão
-                document.querySelectorAll('.permission-warning').forEach(warning => {
-                    warning.classList.add('hidden');
-                });
-                document.querySelectorAll('#operatorAdminContent, #reportAdminContent, #adminContent').forEach(content => {
-                    content.classList.remove('hidden');
-                });
+                document.querySelectorAll('.permission-warning').forEach(warning => warning.classList.add('hidden'));
+                document.querySelectorAll('#operatorAdminContent, #reportAdminContent, #adminContent').forEach(content => content.classList.remove('hidden'));
             } else {
-                adminTabs.forEach(tab => {
-                    tab.classList.add('hidden');
-                });
+                // Operador só pode ver Registrar Produção e Avisos
+                adminTabs.forEach(tab => tab.classList.add('hidden'));
                 dashboardTab.classList.add('hidden');
-                historyTab.classList.remove('hidden');
+                historyTab.classList.add('hidden');
+                producaoTotalTab.classList.add('hidden');
+                estoqueTab.classList.add('hidden');
+                registerTab.classList.remove('hidden');
                 warningsTab.classList.remove('hidden');
-                
                 // Se estiver em uma aba escondida, redirecionar para register
                 const activeTab = document.querySelector('.tab.active');
-                if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') === 'dashboard')) {
+                if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') !== 'register')) {
                     switchTab('register');
                 }
             }
@@ -1553,18 +1666,176 @@
             }
         }
         
+        // Carregar produção total por modelo e cor
+async function loadProducaoTotal() {
+    const totalList = document.getElementById('producaoTotalList');
+    const totalLoading = document.getElementById('producaoTotalLoading');
+    const individualList = document.getElementById('producaoIndividualList');
+    totalList.innerHTML = '';
+    individualList.innerHTML = '';
+    totalLoading.style.display = 'block';
+    try {
+        const snapshot = await db.collection('production').get();
+        const totalMap = {};
+        const individualMap = {};
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            if (!d.model || !d.color) return;
+            // Total por modelo e cor
+            const key = d.model + '|' + d.color;
+            totalMap[key] = (totalMap[key] || 0) + (parseInt(d.quantity) || 0);
+            // Individualizado
+            const indKey = (d.operatorName || '-') + '|' + d.model + '|' + d.color;
+            individualMap[indKey] = (individualMap[indKey] || 0) + (parseInt(d.quantity) || 0);
+        });
+        // Preencher tabela total
+        Object.entries(totalMap).forEach(([key, qtd]) => {
+            const [modelo, cor] = key.split('|');
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
+            totalList.appendChild(row);
+        });
+        // Preencher tabela individualizada
+        Object.entries(individualMap).forEach(([key, qtd]) => {
+            const [operador, modelo, cor] = key.split('|');
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${operador}</td><td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
+            individualList.appendChild(row);
+        });
+        totalLoading.style.display = 'none';
+    } catch (error) {
+        totalList.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar produção total.</td></tr>';
+        individualList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar produção individualizada.</td></tr>';
+        totalLoading.style.display = 'none';
+    }
+}
+
+// Chamar ao trocar para a aba
+const mainTabs = document.getElementById('mainTabs');
+if (mainTabs) {
+    mainTabs.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
+            if (tabId === 'producaoTotal') {
+                loadProducaoTotal();
+            }
+        });
+    });
+}
+        // Carregar cadeiras disponíveis para a aba Estoque
+        async function loadEstoque() {
+            const estoqueList = document.getElementById('estoqueList');
+            const estoqueLoading = document.getElementById('estoqueLoading');
+            estoqueList.innerHTML = '';
+            estoqueLoading.style.display = 'block';
+            try {
+                // Buscar todos os registros de produção não baixados
+                const snapshot = await db.collection('production')
+                    .orderBy('date', 'desc')
+                    .limit(200)
+                    .get();
+                const docs = snapshot.docs.filter(doc => !doc.data().baixa);
+                // Agrupar por modelo e cor
+                const estoqueMap = {};
+                docs.forEach(doc => {
+                    const item = doc.data();
+                    const key = item.model + '|' + (item.color || '-');
+                    if (!estoqueMap[key]) {
+                        estoqueMap[key] = { model: item.model, color: item.color || '-', total: 0, docIds: [] };
+                    }
+                    estoqueMap[key].total += item.quantity || 0;
+                    estoqueMap[key].docIds.push(doc.id);
+                });
+                const keys = Object.keys(estoqueMap);
+                if (keys.length === 0) {
+                    estoqueList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:24px;">Nenhuma cadeira disponível no estoque.</td></tr>';
+                    estoqueLoading.style.display = 'none';
+                    return;
+                }
+                keys.forEach(key => {
+                    const item = estoqueMap[key];
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${getModelName(item.model)}</td>
+                        <td>${item.color}</td>
+                        <td>${item.total}</td>
+                        <td><button class="btn btn-danger" onclick="abrirModalBaixa('${item.model}','${item.color.replace(/'/g, '\'')}',${item.total},'${item.docIds.join(',')}')"><i class='fas fa-arrow-down'></i> Dar Baixa</button></td>
+                    `;
+                    estoqueList.appendChild(row);
+                });
+                estoqueLoading.style.display = 'none';
+            } catch (error) {
+                estoqueList.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar estoque.</td></tr>';
+                estoqueLoading.style.display = 'none';
+            }
+        }
+
+        // Função para dar baixa em um item do estoque
+        window.darBaixaEstoque = async function(id) {
+            // Não usado mais
+        }
+
+        // Modal para baixa parcial
+        window.abrirModalBaixa = function(model, color, total, docIdsStr) {
+            const quantidade = prompt(`Quantidade a dar baixa para ${getModelName(model)} - ${color} (Disponível: ${total}):`, '1');
+            const qtd = parseInt(quantidade);
+            if (!qtd || qtd <= 0 || qtd > total) {
+                showNotification('Quantidade inválida.', 'error');
+                return;
+            }
+            darBaixaParcial(model, color, qtd, docIdsStr.split(','));
+        }
+
+        // Função para dar baixa parcial
+        async function darBaixaParcial(model, color, qtd, docIds) {
+            let restante = qtd;
+            try {
+                for (let docId of docIds) {
+                    if (restante <= 0) break;
+                    const docRef = db.collection('production').doc(docId);
+                    const docSnap = await docRef.get();
+                    if (!docSnap.exists) continue;
+                    const item = docSnap.data();
+                    if (item.baixa) continue;
+                    const itemQtd = item.quantity || 0;
+                    if (itemQtd <= 0) continue;
+                    if (itemQtd <= restante) {
+                        // Dar baixa total neste registro
+                        await docRef.update({ baixa: true, baixaData: new Date().toISOString() });
+                        restante -= itemQtd;
+                    } else {
+                        // Baixa parcial: atualizar quantidade e criar novo registro baixado
+                        await docRef.update({ quantity: itemQtd - restante });
+                        await db.collection('production').add({
+                            ...item,
+                            quantity: restante,
+                            baixa: true,
+                            baixaData: new Date().toISOString(),
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        restante = 0;
+                    }
+                }
+                showNotification('Baixa realizada com sucesso!', 'success');
+                loadEstoque();
+            } catch (error) {
+                showNotification('Erro ao dar baixa.', 'error');
+            }
+        }
+
         // Sistema de abas
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const tabId = tab.getAttribute('data-tab');
-                
                 // Verificar permissão para abas de admin
                 if (tab.classList.contains('admin-tab') && userRole !== 'admin') {
                     showNotification('Apenas administradores podem acessar esta área.', 'error');
                     return;
                 }
-                
                 switchTab(tabId);
+                if (tabId === 'estoque') {
+                    loadEstoque();
+                }
             });
         });
         
@@ -1584,6 +1855,8 @@
                 updateHistoryList();
             } else if (tabId === 'operators' && userRole === 'admin') {
                 updateOperatorsTable();
+            } else if (tabId === 'producaoTotal') {
+                loadProducaoTotal();
             }
         }
         
@@ -1591,6 +1864,7 @@
         document.getElementById('registerProduction').addEventListener('click', async () => {
             const operatorSelect = document.getElementById('operator');
             const modelSelect = document.getElementById('model');
+            const colorInput = document.getElementById('color');
             const quantityInput = document.getElementById('quantity');
             const lossesInput = document.getElementById('losses');
             const dateInput = document.getElementById('date');
@@ -1599,6 +1873,10 @@
             
             if (!operatorSelect.value || !modelSelect.value || !quantityInput.value || !dateInput.value) {
                 showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return;
+            }
+            if (!colorInput.value) {
+                showNotification('Por favor, informe a cor da cadeira.', 'error');
                 return;
             }
             
@@ -1617,6 +1895,7 @@
                     operatorId: operatorId,
                     operatorName: operator.name,
                     model: modelSelect.value,
+                    color: colorInput.value,
                     quantity: parseInt(quantityInput.value),
                     losses: parseInt(lossesInput.value) || 0,
                     period: periodSelect.value,
@@ -1637,6 +1916,7 @@
                 lossesInput.value = '';
                 notesInput.value = '';
                 modelSelect.value = '';
+                colorInput.value = '';
                 
                 // Atualizar dashboard e histórico
                 updateDashboard();
@@ -2464,7 +2744,7 @@
             reportHTML += '<p><strong>Média diária:</strong> ' + escapeHtml(avgDailyProduction.toFixed(2)) + ' unidades</p>';
 
             reportHTML += '<h4 style="margin-top: 20px;">Produção por Operador</h4>';
-            reportHTML += '<table class="admin-table"><thead><tr><th>Operador</th><th>Produção Total</th><th>Registros</th><th>Média por Registro</th></tr></thead><tbody>';
+            reportHTML += '<table class="admin-table"><thead><tr><th>Operador</th><th>Produção Total</th><th>Registros</th><th>Média por Registro</th></tr></thead><tbody>' +
 
             Object.values(operatorStats).forEach(stat => {
                 reportHTML += '<tr>' +
@@ -2478,7 +2758,7 @@
             reportHTML += '</tbody></table>';
 
             reportHTML += '<h4 style="margin-top: 20px;">Produção por Modelo</h4>';
-            reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Produção Total</th><th>Percentual</th></tr></thead><tbody>';
+            reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Produção Total</th><th>Percentual</th></tr></thead><tbody>' +
 
             Object.entries(modelStats).forEach(([model, total]) => {
                 const percentage = total > 0 ? ((total / totalProduction) * 100).toFixed(1) : 0;
@@ -2578,69 +2858,98 @@
             showNotification('Registro encontrado. Você pode editá-lo agora.', 'success');
         });
         
-        // Inicialização do Firebase Auth
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Usuário já está logado
-                currentUser = user;
-                
-                // Carregar dados do usuário
-                db.collection('users').doc(user.uid).get().then((doc) => {
-                    if (doc.exists) {
-                        const userData = doc.data();
-                        userRole = userData.role || (user.email === 'souza73e@gmail.com' ? 'admin' : 'operador');
-                        
-                        document.getElementById('userName').textContent = userData.name || user.email.split('@')[0];
-                        document.getElementById('userRole').textContent = userRole === 'admin' ? 'Administrador' : 'Operador';
-                        document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
-                        
-                        setupUserPermissions();
-                        loadSystemData();
-                        
-                        document.getElementById('loginScreen').classList.add('hidden');
-                        document.getElementById('mainApp').classList.remove('hidden');
+        // Adicionar ao HTML da aba Estoque, antes da tabela:
+        const estoqueDiv = document.getElementById('estoque');
+        if (estoqueDiv && !document.getElementById('manualEstoqueForm')) {
+            const form = document.createElement('form');
+            form.id = 'manualEstoqueForm';
+            form.innerHTML = `
+                <div class="card" style="margin-bottom:20px;">
+                    <h3 class="section-title">Adicionar Estoque Manualmente</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="manualModel">Modelo</label>
+                            <select id="manualModel" required>
+                                <option value="">Selecione</option>
+                                <option value="bistro">Cadeira Bistro</option>
+                                <option value="alegra">Cadeira Alegra</option>
+                                <option value="folha">Cadeira Folha</option>
+                                <option value="coral">Cadeira Coral</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualColor">Cor</label>
+                            <select id="manualColor" required>
+                                <option value="">Selecione</option>
+                                <option value="preto">Preto</option>
+                                <option value="branco">Branco</option>
+                                <option value="terra cota">Terra Cota</option>
+                                <option value="vermelho">Vermelho</option>
+                                <option value="bege">Bege</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualQtd">Quantidade</label>
+                            <input type="number" id="manualQtd" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="manualDate">Data</label>
+                            <input type="date" id="manualDate" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn"><i class="fas fa-plus"></i> Adicionar ao Estoque</button>
+                </div>
+            `;
+            estoqueDiv.insertBefore(form, estoqueDiv.querySelector('.card'));
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const model = document.getElementById('manualModel').value;
+                const color = document.getElementById('manualColor').value;
+                const qtd = parseInt(document.getElementById('manualQtd').value);
+                const date = document.getElementById('manualDate').value;
+                if (!model || !color || !qtd || !date) return;
+                try {
+                    await db.collection('production').add({
+                        model,
+                        color,
+                        quantity: qtd,
+                        losses: 0,
+                        operatorName: 'Estoque Inicial',
+                        date,
+                        period: 'manual',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: currentUser ? currentUser.uid : 'manual',
+                        baixa: false
+                    });
+                    showNotification('Estoque adicionado com sucesso!', 'success');
+                    loadEstoque();
+                    form.reset();
+                } catch (err) {
+                    showNotification('Erro ao adicionar estoque.', 'error');
+                }
+            });
+        }
+    </script>
+    <script>
+    // Alternância das abas de modelos no dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        const modelTabs = document.querySelectorAll('.model-tab');
+        const modelContents = document.querySelectorAll('.model-content');
+        modelTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                modelTabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                const model = this.getAttribute('data-model');
+                modelContents.forEach(content => {
+                    if(content.id === model + '-content') {
+                        content.style.display = 'block';
+                    } else {
+                        content.style.display = 'none';
                     }
                 });
-            }
+            });
         });
-        
-        // Adicionar estilo para badges de status
-        const style = document.createElement('style');
-        style.textContent = `
-            .status-badge {
-                padding: 4px 8px;
-                border-radius: 12px;
-                font-size: 0.8rem;
-                font-weight: 600;
-            }
-            
-            .status-badge.ativo {
-                background-color: #d4edda;
-                color: #155724;
-            }
-            
-            .status-badge.inativo {
-                background-color: #f8d7da;
-                color: #721c24;
-            }
-            
-            .status-badge.ferias {
-                background-color: #fff3cd;
-                color: #856404;
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Nota: Para configurar o Firebase corretamente, você precisa:
-        // 1. Criar um projeto no Firebase Console
-        // 2. Ativar Authentication (com provedor Email/Senha)
-        // 3. Ativar Firestore Database
-        // 4. Configurar as regras de segurança fornecidas
-        // 5. Adicionar usuários manualmente no Firestore:
-        //    - Coleção "users" com documentos contendo: email, name, role ("admin" ou "operador")
-        //    - Coleção "operators" para cadastrar os operadores
-        //    - Coleção "production" para os registros de produção
-        //    - Coleção "settings" para configurações do sistema
+    });
     </script>
 </body>
 </html>
