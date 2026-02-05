@@ -500,6 +500,12 @@
         .alegra { background-color: #a29bfe; color: #2d1b8a; }
         .folha { background-color: #55efc4; color: #005a40; }
         .coral { background-color: #fd79a8; color: #880e4f; }
+            .cinza-grafite { background-color: #424242; color: #fff; }
+            .prata { background-color: #c0c0c0; color: #222; }
+            .verde-agua { background-color: #7fffd4; color: #005a40; }
+            .vermelho-cebola { background-color: #a83232; color: #fff; }
+            .azul-bic { background-color: #1976d2; color: #fff; }
+            .azul-musco { background-color: #274472; color: #fff; }
         
         /* Tabelas de administração */
         .admin-table {
@@ -769,6 +775,12 @@
                                                         <option value="terra cota">Terra Cota</option>
                                                         <option value="vermelho">Vermelho</option>
                                                         <option value="bege">Bege</option>
+                                                        <option value="cinza grafite">Cinza Grafite</option>
+                                                        <option value="prata">Prata</option>
+                                                        <option value="verde agua">Verde Água</option>
+                                                        <option value="vermelho cebola">Vermelho Cebola</option>
+                                                        <option value="azul bic">Azul Bic</option>
+                                                        <option value="azul musco">Azul Musco</option>
                                                     </select>
                                                 </div>
                         <div class="form-group">
@@ -1146,6 +1158,7 @@
                                     <option value="weekly">Semanal</option>
                                     <option value="monthly">Mensal</option>
                                     <option value="custom">Período Customizado</option>
+                                    <option value="estoque">Estoque Atual</option>
                                 </select>
                             </div>
                             
@@ -1196,6 +1209,9 @@
                     <div class="card">
                         <h3 class="section-title">Resultado do Relatório</h3>
                         <div id="reportResult">
+                            <div style="text-align: center; margin-bottom: 24px; font-family: 'Arial Black', Arial, sans-serif; font-size: 2.2rem; font-weight: bold; letter-spacing: 0.05em;">
+                                ambipar <span style="display:inline-block; border:2px solid #000; border-radius: 6px; padding: 0 8px; font-size: 1.3rem; vertical-align: middle; margin-left: 4px; font-family: Arial, sans-serif;">a</span>
+                            </div>
                             <p style="text-align: center; color: #666; padding: 40px;">
                                 Selecione os filtros e clique em "Gerar Relatório" para visualizar os dados.
                             </p>
@@ -1801,16 +1817,25 @@ if (mainTabs) {
                     if (bgColor === 'marrom') bgColor = 'brown';
                     if (bgColor === 'bege') bgColor = '#f5deb3';
                     if (bgColor === 'terra cota' || bgColor === 'terracota') bgColor = '#b04a2b';
+                    // Novas cores
+                    if (bgColor === 'cinza grafite') bgColor = '#424242';
+                    if (bgColor === 'prata') bgColor = '#c0c0c0';
+                    if (bgColor === 'verde agua') bgColor = '#7fffd4';
+                    if (bgColor === 'vermelho cebola') bgColor = '#a83232';
+                    if (bgColor === 'azul bic') bgColor = '#1976d2';
+                    if (bgColor === 'azul musco') bgColor = '#274472';
                     row.style.background = bgColor;
-                    // Letras brancas se fundo preto, senão pretas
-                    if (bgColor === 'black') {
-                        row.style.color = 'white';
-                    } else {
-                        row.style.color = 'black';
+                    // Letras brancas se fundo escuro, senão pretas
+                    let corLetra = 'black';
+                    if ([
+                        'black', '#424242', '#a83232', '#1976d2', '#274472', '#fd79a8', '#005a40', '#8a6300', '#2d1b8a'
+                    ].includes(bgColor)) {
+                        corLetra = 'white';
                     }
+                    row.style.color = corLetra;
                     row.innerHTML = `
                         <td>${getModelName(item.model)}</td>
-                        <td>${item.color}</td>
+                        <td><span style="padding:3px 12px;border-radius:12px;font-weight:600;background:${bgColor};color:${corLetra};display:inline-block;">${item.color}</span></td>
                         <td>${item.total}</td>
                         <td><button class="btn btn-danger" onclick="abrirModalBaixa('${item.model}','${item.color.replace(/'/g, '\'')}',${item.total},'${item.docIds.join(',')}')"><i class='fas fa-arrow-down'></i> Dar Baixa</button></td>
                     `;
@@ -2738,38 +2763,60 @@ if (mainTabs) {
                 showNotification('Apenas administradores podem gerar relatórios.', 'error');
                 return;
             }
-            
+
             const reportType = document.getElementById('reportType').value;
             const startDate = document.getElementById('reportStartDate').value;
             const endDate = document.getElementById('reportEndDate').value;
             const operatorId = document.getElementById('reportOperator').value;
             const model = document.getElementById('reportModel').value;
-            
-            // Filtrar dados
-            let filteredData = productionHistory;
-            
+
+            if (reportType === 'estoque') {
+                // Relatório de estoque atual
+                // Considera todos os registros não baixados (estoque manual e produção)
+                const estoqueAtual = productionHistory.filter(record => !record.baixa);
+                // Agrupa por modelo/cor
+                const estoqueMap = {};
+                estoqueAtual.forEach(record => {
+                    const key = record.model + '-' + record.color;
+                    if (!estoqueMap[key]) {
+                        estoqueMap[key] = { model: record.model, color: record.color, total: 0 };
+                    }
+                    estoqueMap[key].total += record.quantity;
+                });
+                let reportHTML = '<h3>Relatório de Estoque Atual</h3>';
+                reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Cor</th><th>Quantidade</th></tr></thead><tbody>';
+                Object.values(estoqueMap).forEach(item => {
+                    reportHTML += `<tr><td>${escapeHtml(getModelName(item.model))}</td><td>${escapeHtml(item.color)}</td><td>${escapeHtml(item.total)}</td></tr>`;
+                });
+                reportHTML += '</tbody></table>';
+                document.getElementById('reportResult').innerHTML = reportHTML;
+                showNotification('Relatório de estoque gerado com sucesso!', 'success');
+                return;
+            }
+
+            // ...relatório de produção normal...
+            let filteredData = productionHistory.filter(record => record.tipo !== 'estoque');
+
             if (operatorId !== 'all') {
                 filteredData = filteredData.filter(record => record.operatorId === operatorId);
             }
-            
+
             if (model !== 'all') {
                 filteredData = filteredData.filter(record => record.model === model);
             }
-            
-            // Filtrar por data baseado no tipo de relatório
+
             const end = new Date(endDate);
             const start = new Date(startDate);
-            
+
             filteredData = filteredData.filter(record => {
                 const recordDate = new Date(record.date);
                 return recordDate >= start && recordDate <= end;
             });
-            
-            // Calcular estatísticas
+
             const totalProduction = filteredData.reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             const avgDailyProduction = filteredData.length > 0 ? 
                 totalProduction / filteredData.length : 0;
-            
+
             const operatorStats = {};
             filteredData.forEach(record => {
                 if (!operatorStats[record.operatorId]) {
@@ -2782,13 +2829,12 @@ if (mainTabs) {
                 operatorStats[record.operatorId].total += (record.quantity - (record.losses || 0));
                 operatorStats[record.operatorId].count++;
             });
-            
+
             const modelStats = {};
             filteredData.forEach(record => {
                 modelStats[record.model] = (modelStats[record.model] || 0) + (record.quantity - (record.losses || 0));
             });
-            
-            // Gerar HTML do relatório de forma segura (escapando valores)
+
             let reportHTML = '';
             reportHTML += '<h3>Relatório de Produção</h3>';
             reportHTML += '<p><strong>Período:</strong> ' + escapeHtml(startDate) + ' a ' + escapeHtml(endDate) + '</p>';
@@ -2848,7 +2894,7 @@ if (mainTabs) {
             const resultEl = document.getElementById('reportResult');
             const content = resultEl.innerHTML.trim();
 
-            if (!content || content.indexOf('Relatório de Produção') === -1) {
+            if (!content) {
                 showNotification('Nenhum relatório disponível para visualização.', 'error');
                 return;
             }
@@ -2939,6 +2985,12 @@ if (mainTabs) {
                                 <option value="terra cota">Terra Cota</option>
                                 <option value="vermelho">Vermelho</option>
                                 <option value="bege">Bege</option>
+                                <option value="cinza grafite">Cinza Grafite</option>
+                                <option value="prata">Prata</option>
+                                <option value="verde agua">Verde Água</option>
+                                <option value="vermelho cebola">Vermelho Cebola</option>
+                                <option value="azul bic">Azul Bic</option>
+                                <option value="azul musco">Azul Musco</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -2970,6 +3022,7 @@ if (mainTabs) {
                         operatorName: 'Estoque Inicial',
                         date,
                         period: 'manual',
+                        tipo: 'estoque', // <-- campo para diferenciar
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         createdBy: currentUser ? currentUser.uid : 'manual',
                         baixa: false
