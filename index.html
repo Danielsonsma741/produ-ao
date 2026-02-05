@@ -967,6 +967,46 @@
                         <div id="estoque" class="tab-content">
                             <h2 class="section-title"><i class="fas fa-warehouse"></i> Estoque de Cadeiras</h2>
                             <div class="card">
+                                <h3 class="section-title">Dar Baixa de Estoque</h3>
+                                <p style="margin-bottom: 20px; color: #666;">Remova cadeiras do estoque automaticamente selecionando o modelo, cor e quantidade.</p>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="stockModel"><i class="fas fa-chair"></i> Modelo da Cadeira</label>
+                                        <select id="stockModel">
+                                            <option value="">Selecione um modelo</option>
+                                            <option value="bistro">Cadeira Bistro</option>
+                                            <option value="alegra">Cadeira Alegra</option>
+                                            <option value="folha">Cadeira Folha</option>
+                                            <option value="coral">Cadeira Coral</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="stockColor"><i class="fas fa-palette"></i> Cor da Cadeira</label>
+                                        <select id="stockColor">
+                                            <option value="">Selecione a cor</option>
+                                            <option value="preto">Preto</option>
+                                            <option value="branco">Branco</option>
+                                            <option value="terra cota">Terra Cota</option>
+                                            <option value="vermelho">Vermelho</option>
+                                            <option value="bege">Bege</option>
+                                            <option value="cinza grafite">Cinza Grafite</option>
+                                            <option value="prata">Prata</option>
+                                            <option value="verde agua">Verde Água</option>
+                                            <option value="vermelho cebola">Vermelho Cebola</option>
+                                            <option value="azul bic">Azul Bic</option>
+                                            <option value="azul musco">Azul Musco</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="stockQuantity"><i class="fas fa-minus-circle"></i> Quantidade a Remover</label>
+                                        <input type="number" id="stockQuantity" min="1" max="10000" placeholder="Ex: 10">
+                                    </div>
+                                </div>
+                                <button id="removeStock" class="btn">
+                                    <i class="fas fa-trash-alt"></i> Dar Baixa no Estoque
+                                </button>
+                            </div>
+                            <div class="card">
                                 <h3 class="section-title">Cadeiras Disponíveis</h3>
                                 <div id="estoqueLoading" class="loading" style="display:none;">
                                     <i class="fas fa-spinner fa-spin"></i> Carregando estoque...
@@ -3035,6 +3075,91 @@ if (mainTabs) {
                 }
             });
         }
+
+        // Event listener para "Dar Baixa no Estoque"
+        document.getElementById('removeStock').addEventListener('click', async (e) => {
+            e.preventDefault();
+            const model = document.getElementById('stockModel').value;
+            const color = document.getElementById('stockColor').value;
+            const quantityToRemove = parseInt(document.getElementById('stockQuantity').value);
+
+            if (!model || !color || !quantityToRemove) {
+                showNotification('Por favor, preencha todos os campos.', 'error');
+                return;
+            }
+
+            if (quantityToRemove <= 0) {
+                showNotification('Quantidade deve ser maior que zero.', 'error');
+                return;
+            }
+
+            try {
+                // Buscar itens do estoque com esse modelo e cor (não marcados como baixa)
+                const snapshot = await db.collection('production')
+                    .where('model', '==', model)
+                    .where('color', '==', color)
+                    .where('baixa', '!=', true)
+                    .get();
+
+                if (snapshot.empty) {
+                    showNotification('Nenhum item encontrado com esse modelo e cor.', 'warning');
+                    return;
+                }
+
+                let totalAvailable = 0;
+                const docsToUpdate = [];
+
+                // Calcular quantidade total disponível
+                snapshot.forEach(doc => {
+                    const qty = doc.data().quantity || 0;
+                    totalAvailable += qty;
+                    docsToUpdate.push({ id: doc.id, quantity: qty, data: doc.data() });
+                });
+
+                if (totalAvailable < quantityToRemove) {
+                    showNotification(`Quantidade insuficiente! Disponível: ${totalAvailable}, Solicitado: ${quantityToRemove}`, 'error');
+                    return;
+                }
+
+                // Atualizar documentos, marcando como baixa quando a quantidade for removida
+                let remainingToRemove = quantityToRemove;
+                const batch = db.batch();
+
+                for (const doc of docsToUpdate) {
+                    if (remainingToRemove <= 0) break;
+
+                    const docRef = db.collection('production').doc(doc.id);
+                    
+                    if (doc.quantity <= remainingToRemove) {
+                        // Marca este item como baixa (removido completamente)
+                        batch.update(docRef, {
+                            baixa: true,
+                            removedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            removedBy: currentUser ? currentUser.uid : 'unknown',
+                            removedQuantity: doc.quantity
+                        });
+                        remainingToRemove -= doc.quantity;
+                    } else {
+                        // Reduz a quantidade
+                        batch.update(docRef, {
+                            quantity: doc.quantity - remainingToRemove,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        remainingToRemove = 0;
+                    }
+                }
+
+                await batch.commit();
+                showNotification(`${quantityToRemove} unidades removidas do estoque com sucesso!`, 'success');
+                loadEstoque();
+                document.getElementById('stockModel').value = '';
+                document.getElementById('stockColor').value = '';
+                document.getElementById('stockQuantity').value = '';
+            } catch (err) {
+                console.error('Erro ao remover estoque:', err);
+                showNotification('Erro ao remover estoque. Verifique os dados e tente novamente.', 'error');
+            }
+        });
     </script>
     <script>
     // Alternância das abas de modelos no dashboard
