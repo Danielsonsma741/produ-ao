@@ -616,6 +616,53 @@
             height: 100% !important;
         }
         
+        .chart-section {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .chart-section > div:first-child {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .chart-explanation {
+            flex: 0 1 300px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #00a859;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .chart-explanation h5 {
+            color: #00a859;
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+        
+        .chart-explanation p {
+            margin: 8px 0;
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 1.4;
+        }
+        
+        .chart-explanation ul {
+            margin: 8px 0;
+            padding-left: 20px;
+            font-size: 0.85rem;
+            color: #555;
+        }
+        
+        .chart-explanation li {
+            margin: 4px 0;
+            line-height: 1.3;
+        }
+        
         /* Footer */
         .ambipar-footer {
             background-color: #004d2a;
@@ -3219,12 +3266,47 @@ if (mainTabs) {
 
             reportHTML += '</tbody></table>';
 
-            // inserir contêineres de gráfico
-            reportHTML += '<h4 style="margin-top: 20px;">Gráfico: Eficiência por Operador</h4>';
-            reportHTML += '<div class="chart-container"><canvas id="efficiencyChart"></canvas></div>';
+            // inserir contêineres de gráfico com explicações
+            reportHTML += '<h4 style="margin-top: 30px;">Gráfico: Eficiência por Operador</h4>';
+            reportHTML += '<div class="chart-section">';
+            reportHTML += '<div><div class="chart-container"><canvas id="efficiencyChart"></canvas></div></div>';
+            reportHTML += '<div class="chart-explanation">';
+            reportHTML += '<h5>📊 Como é Calculado</h5>';
+            reportHTML += '<p><strong>Fórmula:</strong></p>';
+            reportHTML += '<ul>';
+            reportHTML += '<li>Para cada modelo: (Produção Real ÷ Meta Esperada) × 100%</li>';
+            reportHTML += '<li>Meta Esperada = Meta Diária × Número de Dias no Período</li>';
+            reportHTML += '<li>Eficiência Final = Média entre todos os modelos</li>';
+            reportHTML += '</ul>';
+            reportHTML += '<p><strong>Interpretação:</strong></p>';
+            reportHTML += '<ul>';
+            reportHTML += '<li><strong>100%</strong> = Atingiu a meta (linha vermelha)</li>';
+            reportHTML += '<li><strong>&gt;100%</strong> = Superou a meta</li>';
+            reportHTML += '<li><strong>&lt;100%</strong> = Abaixo da meta</li>';
+            reportHTML += '<li><strong>🏆 Ouro</strong> = Operador com melhor desempenho</li>';
+            reportHTML += '</ul>';
+            reportHTML += '</div>';
+            reportHTML += '</div>';
+            
             ['bistro','alegra','folha','coral'].forEach(m => {
-                reportHTML += '<h4 style="margin-top: 20px;">Produção por Operador - ' + getModelName(m) + '</h4>';
-                reportHTML += '<div class="chart-container"><canvas id="modelOperators_' + m + '"></canvas></div>';
+                reportHTML += '<h4 style="margin-top: 30px;">Produção por Operador - ' + getModelName(m) + '</h4>';
+                reportHTML += '<div class="chart-section">';
+                reportHTML += '<div><div class="chart-container"><canvas id="modelOperators_' + m + '"></canvas></div></div>';
+                reportHTML += '<div class="chart-explanation">';
+                reportHTML += '<h5>📊 Como é Calculado</h5>';
+                reportHTML += '<p><strong>O que mostra:</strong></p>';
+                reportHTML += '<ul>';
+                reportHTML += '<li>Total de unidades produzidas por cada operador</li>';
+                reportHTML += '<li>Apenas para o modelo <strong>' + getModelName(m) + '</strong></li>';
+                reportHTML += '<li>No período selecionado</li>';
+                reportHTML += '</ul>';
+                reportHTML += '<p><strong>Cálculo:</strong></p>';
+                reportHTML += '<ul>';a
+                reportHTML += '<li>Soma de (Quantidade - Perdas) por operador</li>';
+                reportHTML += '<li>Filtrado apenas para este modelo</li>';
+                reportHTML += '</ul>';
+                reportHTML += '</div>';
+                reportHTML += '</div>';
             });
 
             document.getElementById('reportResult').innerHTML = reportHTML;
