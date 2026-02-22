@@ -950,8 +950,22 @@
                     </div>
                     <div class="card">
                         <h3 class="section-title">Produção por Operador - Bistro</h3>
-                        <div class="chart-container">
-                            <canvas id="bistroOperatorChart"></canvas>
+                        <div class="chart-section">
+                            <div><div class="chart-container"><canvas id="bistroOperatorChart"></canvas></div></div>
+                            <div class="chart-explanation">
+                                <h5>📊 Como é Calculado</h5>
+                                <p><strong>O que mostra:</strong></p>
+                                <ul>
+                                    <li>Total de unidades produzidas</li>
+                                    <li>Separado por cada operador</li>
+                                    <li>Apenas para o modelo Bistro</li>
+                                </ul>
+                                <p><strong>Cálculo:</strong></p>
+                                <ul>
+                                    <li>Soma de (Quantidade - Perdas)</li>
+                                    <li>Filtrado apenas para este modelo</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -965,8 +979,22 @@
                     </div>
                     <div class="card">
                         <h3 class="section-title">Produção por Operador - Alegra</h3>
-                        <div class="chart-container">
-                            <canvas id="alegraOperatorChart"></canvas>
+                        <div class="chart-section">
+                            <div><div class="chart-container"><canvas id="alegraOperatorChart"></canvas></div></div>
+                            <div class="chart-explanation">
+                                <h5>📊 Como é Calculado</h5>
+                                <p><strong>O que mostra:</strong></p>
+                                <ul>
+                                    <li>Total de unidades produzidas</li>
+                                    <li>Separado por cada operador</li>
+                                    <li>Apenas para o modelo Alegra</li>
+                                </ul>
+                                <p><strong>Cálculo:</strong></p>
+                                <ul>
+                                    <li>Soma de (Quantidade - Perdas)</li>
+                                    <li>Filtrado apenas para este modelo</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -980,8 +1008,22 @@
                     </div>
                     <div class="card">
                         <h3 class="section-title">Produção por Operador - Folha</h3>
-                        <div class="chart-container">
-                            <canvas id="folhaOperatorChart"></canvas>
+                        <div class="chart-section">
+                            <div><div class="chart-container"><canvas id="folhaOperatorChart"></canvas></div></div>
+                            <div class="chart-explanation">
+                                <h5>📊 Como é Calculado</h5>
+                                <p><strong>O que mostra:</strong></p>
+                                <ul>
+                                    <li>Total de unidades produzidas</li>
+                                    <li>Separado por cada operador</li>
+                                    <li>Apenas para o modelo Folha</li>
+                                </ul>
+                                <p><strong>Cálculo:</strong></p>
+                                <ul>
+                                    <li>Soma de (Quantidade - Perdas)</li>
+                                    <li>Filtrado apenas para este modelo</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -995,21 +1037,64 @@
                     </div>
                     <div class="card">
                         <h3 class="section-title">Produção por Operador - Coral</h3>
-                        <div class="chart-container">
-                            <canvas id="coralOperatorChart"></canvas>
+                        <div class="chart-section">
+                            <div><div class="chart-container"><canvas id="coralOperatorChart"></canvas></div></div>
+                            <div class="chart-explanation">
+                                <h5>📊 Como é Calculado</h5>
+                                <p><strong>O que mostra:</strong></p>
+                                <ul>
+                                    <li>Total de unidades produzidas</li>
+                                    <li>Separado por cada operador</li>
+                                    <li>Apenas para o modelo Coral</li>
+                                </ul>
+                                <p><strong>Cálculo:</strong></p>
+                                <ul>
+                                    <li>Soma de (Quantidade - Perdas)</li>
+                                    <li>Filtrado apenas para este modelo</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="card" style="margin-top:32px;">
                     <h3 class="section-title">Produção Total por Modelo</h3>
-                    <div class="chart-container">
-                        <canvas id="modelChart"></canvas>
+                    <div class="chart-section">
+                        <div><div class="chart-container"><canvas id="modelChart"></canvas></div></div>
+                        <div class="chart-explanation">
+                            <h5>📊 Como é Calculado</h5>
+                            <p><strong>O que mostra:</strong></p>
+                            <ul>
+                                <li>Produção total de cada modelo de cadeira</li>
+                                <li>Soma de todas as produções no período</li>
+                                <li>Comparação entre os 4 modelos (Bistro, Alegra, Folha, Coral)</li>
+                            </ul>
+                            <p><strong>Cálculo:</strong></p>
+                            <ul>
+                                <li>Soma de (Quantidade - Perdas) por modelo</li>
+                                <li>Exclui movimentações de estoque</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="card">
                     <h3 class="section-title">Produção Total por Operador</h3>
-                    <div class="chart-container">
-                        <canvas id="operatorChart"></canvas>
+                    <div class="chart-section">
+                        <div><div class="chart-container"><canvas id="operatorChart"></canvas></div></div>
+                        <div class="chart-explanation">
+                            <h5>📊 Como é Calculado</h5>
+                            <p><strong>O que mostra:</strong></p>
+                            <ul>
+                                <li>Produção total de cada operador</li>
+                                <li>Todos os modelos combinados</li>
+                                <li>Comparação de desempenho geral</li>
+                            </ul>
+                            <p><strong>Cálculo:</strong></p>
+                            <ul>
+                                <li>Soma de (Quantidade - Perdas) por operador</li>
+                                <li>Inclui todos os modelos de cadeiras</li>
+                                <li>Exclui movimentações de estoque</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
