@@ -487,6 +487,11 @@
             border-bottom: none;
         }
         
+        /* entradas de estoque manuais ganham fundo levemente diferente */
+        .production-item.stock-record {
+            background-color: #fafafa;
+        }
+        
         .model-badge {
             display: inline-block;
             padding: 5px 12px;
@@ -495,6 +500,33 @@
             font-weight: 600;
             background-color: #f8f9fa;
         }
+        
+        /* badges used in history list */
+        .date-badge,
+        .period-badge,
+        .time-badge,
+        .color-badge,
+        .stock-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            background-color: #eee;
+            color: #333;
+        }
+        
+        /* cor da cadeira - variantes */
+        .color-badge.preto { background-color:#000; color:#fff; }
+        .color-badge.branco { background-color:#fff; color:#333; border:1px solid #ccc; }
+        .color-badge.terra-cota { background-color:#e2725b; color:#fff; }
+        .color-badge.vermelho { background-color:#e74c3c; color:#fff; }
+        .color-badge.bege { background-color:#f5f5dc; color:#333; }
+        .color-badge.cinza-grafite { background-color:#424242; color:#fff; }
+        .color-badge.prata { background-color:#c0c0c0; color:#222; }
+        .color-badge.verde-agua { background-color:#7fffd4; color:#005a40; }
+        .color-badge.vermelho-cebola { background-color:#a83232; color:#fff; }
+        .color-badge.azul-bic { background-color:#1976d2; color:#fff; }
+        .color-badge.azul-musco { background-color:#274472; color:#fff; }
         
         .bistro { background-color: #ffeaa7; color: #8a6300; }
         .alegra { background-color: #a29bfe; color: #2d1b8a; }
@@ -571,6 +603,17 @@
             display: flex;
             gap: 15px;
             margin-top: 20px;
+        }
+        
+        .chart-container {
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
         
         /* Footer */
@@ -1321,6 +1364,14 @@
                     </div>
                     
                     <div class="card">
+                        <h3 class="section-title">Reset Mensal</h3>
+                        <p>Archive dados do mês anterior para começar novamente do zero a cada novo mês.</p>
+                        <button id="resetMonthlyData" class="btn btn-danger">
+                            <i class="fas fa-redo"></i> Resetar Mês Anterior Agora
+                        </button>
+                    </div>
+                    
+                    <div class="card">
                         <h3 class="section-title">Editar Produção</h3>
                         <p>Use esta seção para corrigir registros de produção inseridos incorretamente.</p>
                         
@@ -1372,6 +1423,30 @@
                                 <div class="form-group">
                                     <label for="editDate">Data</label>
                                     <input type="date" id="editDate">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editTime"><i class="fas fa-clock"></i> Hora</label>
+                                    <input type="time" id="editTime">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editColor"><i class="fas fa-palette"></i> Cor da Cadeira</label>
+                                    <select id="editColor">
+                                        <option value="">Selecione a cor</option>
+                                        <option value="preto">Preto</option>
+                                        <option value="branco">Branco</option>
+                                        <option value="terra cota">Terra Cota</option>
+                                        <option value="vermelho">Vermelho</option>
+                                        <option value="bege">Bege</option>
+                                        <option value="cinza grafite">Cinza Grafite</option>
+                                        <option value="prata">Prata</option>
+                                        <option value="verde agua">Verde Água</option>
+                                        <option value="vermelho cebola">Vermelho Cebola</option>
+                                        <option value="azul bic">Azul Bic</option>
+                                        <option value="azul musco">Azul Musco</option>
+                                    </select>
                                 </div>
                             </div>
                             
@@ -1444,10 +1519,57 @@
             efficiencyGoal: 85
         };
         
-        // Inicializar a data atual
-        document.getElementById('date').valueAsDate = new Date();
-        document.getElementById('reportStartDate').valueAsDate = new Date();
-        document.getElementById('reportEndDate').valueAsDate = new Date();
+        // --- helpers para trabalhar com datas ---
+        function parseDateString(dateStr) {
+            // converte "YYYY-MM-DD" em objeto Date no fuso local
+            if (!dateStr) return null;
+            const parts = dateStr.split('-').map(Number);
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        
+        function formatDateString(dateStr) {
+            // formata "YYYY-MM-DD" como "DD/MM/YYYY" para exibição
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+        
+        // extrai hora de um registro (usa campo time ou createdAt)
+        function getRecordTime(record) {
+            if (record.time) return record.time;
+            if (record.createdAt) {
+                let d;
+                if (typeof record.createdAt.toDate === 'function') {
+                    d = record.createdAt.toDate();
+                } else if (record.createdAt.seconds) {
+                    d = new Date(record.createdAt.seconds * 1000);
+                } else {
+                    return '';
+                }
+                return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            }
+            return '';
+        }
+        
+        function normalizeDate(dateInput) {
+            // aceita string ou Date e devolve "YYYY-MM-DD" garantido
+            if (dateInput instanceof Date) {
+                const y = dateInput.getFullYear();
+                const m = String(dateInput.getMonth() + 1).padStart(2, '0');
+                const d = String(dateInput.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+            if (typeof dateInput === 'string') {
+                const [y, m, d] = dateInput.split('-');
+                return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            }
+            return '';
+        }
+        
+        // Inicializar a data atual (normalizada para evitar deslocamentos)
+        document.getElementById('date').value = normalizeDate(new Date());
+        document.getElementById('reportStartDate').value = normalizeDate(new Date());
+        document.getElementById('reportEndDate').value = normalizeDate(new Date());
         
         // Sistema de login (alterado para e-mail/senha)
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -1587,6 +1709,9 @@
             // Carregar operadores
             await loadOperators();
             
+            // Verificar e executar reset mensal se necessário
+            await checkMonthlyReset();
+            
             // Carregar histórico de produção
             await loadProductionHistory();
             
@@ -1598,6 +1723,42 @@
             
             // Atualizar dashboard
             updateDashboard();
+        }
+        
+        // Verifica e executa reset mensal
+        async function checkMonthlyReset() {
+            try {
+                const now = new Date();
+                const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                const lastResetMonth = localStorage.getItem('lastResetMonth');
+                
+                // Se o mês mudou desde o último reset
+                if (lastResetMonth !== currentMonth) {
+                    console.log('Executando reset mensal para:', currentMonth);
+                    
+                    // Marcar todos os registros do mês anterior como archived
+                    if (lastResetMonth) {
+                        const previousMonth = lastResetMonth;
+                        const snapshot = await db.collection('production')
+                            .where('month', '==', previousMonth)
+                            .get();
+                        
+                        const batch = db.batch();
+                        snapshot.forEach(doc => {
+                            batch.update(db.collection('production').doc(doc.id), {
+                                archived: true,
+                                archivedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        });
+                        await batch.commit();
+                    }
+                    
+                    // Gravar o novo mês como último reset
+                    localStorage.setItem('lastResetMonth', currentMonth);
+                }
+            } catch (error) {
+                console.error('Erro ao verificar reset mensal:', error);
+            }
         }
         
         // Carregar operadores do Firestore
@@ -1678,10 +1839,17 @@
                 productionHistory = [];
                 
                 historySnapshot.forEach(doc => {
-                    productionHistory.push({
+                    const data = doc.data();
+                    // Ignorar registros marcados como archived
+                    if (data.archived === true) return;
+                    const rec = {
                         id: doc.id,
-                        ...doc.data()
-                    });
+                        ...data
+                    };
+                    if (!rec.time && data.createdAt) {
+                        rec.time = getRecordTime(rec);
+                    }
+                    productionHistory.push(rec);
                 });
                 
                 // Sort client-side by date desc, then createdAt desc
@@ -2008,6 +2176,10 @@ if (mainTabs) {
             }
             
             try {
+                // hora atual local
+                const now = new Date();
+                const timeString = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
                 // Adicionar registro ao Firestore
                 const newRecord = {
                     operatorId: operatorId,
@@ -2017,8 +2189,12 @@ if (mainTabs) {
                     quantity: parseInt(quantityInput.value),
                     losses: parseInt(lossesInput.value) || 0,
                     period: periodSelect.value,
-                    date: dateInput.value,
+                    // normaliza a data para evitar deslocamento de fuso
+                    date: normalizeDate(dateInput.value),
+                    time: timeString,
                     notes: notesInput.value,
+                    month: new Date(dateInput.value).getFullYear() + '-' + String(new Date(dateInput.value).getMonth() + 1).padStart(2, '0'),
+                    archived: false,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     createdBy: currentUser.uid
                 };
@@ -2261,8 +2437,8 @@ if (mainTabs) {
                 const modelName = getModelName(record.model);
                 
                 // Formatar data
-                const dateObj = record.date ? new Date(record.date) : new Date();
-                const formattedDate = dateObj.toLocaleDateString('pt-BR');
+                // evitamos conversão direta para Date, que aplica fuso UTC
+                const formattedDate = formatDateString(record.date);
                 
                 // Criar elementos de forma segura
                 const leftDiv = document.createElement('div');
@@ -2280,13 +2456,38 @@ if (mainTabs) {
                 const dateBadge = document.createElement('span');
                 dateBadge.className = 'date-badge';
                 dateBadge.textContent = formattedDate;
-                
+
+                const timeBadge = document.createElement('span');
+                timeBadge.className = 'time-badge';
+                timeBadge.textContent = record.time || getRecordTime(record);
+
                 const periodBadge = document.createElement('span');
                 periodBadge.className = 'period-badge';
-                periodBadge.textContent = record.period === 'daily' ? 'Diário' : 'Hora a Hora';
-                
+                if (record.period === 'daily') {
+                    periodBadge.textContent = 'Diário';
+                } else if (record.period === 'manual' || record.tipo === 'estoque') {
+                    periodBadge.textContent = 'Estoque';
+                } else {
+                    periodBadge.textContent = 'Hora a Hora';
+                }
+
+                const colorBadge = document.createElement('span');
+                colorBadge.className = 'color-badge ' + (record.color ? record.color.replace(/\s+/g,'-') : '');
+                colorBadge.textContent = record.color || '';
+
                 badgesDiv.appendChild(dateBadge);
+                badgesDiv.appendChild(timeBadge);
                 badgesDiv.appendChild(periodBadge);
+                badgesDiv.appendChild(colorBadge);
+
+                // marcar visualmente movimentos de estoque
+                if (record.tipo === 'estoque') {
+                    const stockBadge = document.createElement('span');
+                    stockBadge.className = 'stock-badge';
+                    stockBadge.textContent = 'Estoque';
+                    badgesDiv.appendChild(stockBadge);
+                    listItem.classList.add('stock-record');
+                }
                 
                 leftDiv.appendChild(operatorNameDiv);
                 leftDiv.appendChild(badgesDiv);
@@ -2374,6 +2575,11 @@ if (mainTabs) {
         
         // Atualizar dashboard
         function updateDashboard() {
+            // Helper para reconhecer entradas de estoque manual – não contam como produção
+            function isStockRecord(rec) {
+                return rec.tipo === 'estoque' || rec.period === 'manual';
+            }
+
             // Calcular produção de hoje por modelo
             const today = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
             
@@ -2382,33 +2588,33 @@ if (mainTabs) {
             const folhaTarget = systemSettings.folhaTarget || 30;
             const coralTarget = systemSettings.coralTarget || 20;
             
-            const totalTodayBistro = productionHistory.filter(record => record.date === today && record.model === 'bistro').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayAlegra = productionHistory.filter(record => record.date === today && record.model === 'alegra').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayFolha = productionHistory.filter(record => record.date === today && record.model === 'folha').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayCoral = productionHistory.filter(record => record.date === today && record.model === 'coral').reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayBistro = productionHistory.filter(record => record.date === today && record.model === 'bistro' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayAlegra = productionHistory.filter(record => record.date === today && record.model === 'alegra' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayFolha = productionHistory.filter(record => record.date === today && record.model === 'folha' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayCoral = productionHistory.filter(record => record.date === today && record.model === 'coral' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
             // Calcular produção do mês por modelo
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
             
             const monthBistro = productionHistory.filter(record => {
-                const recordDate = new Date(record.date);
-                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'bistro';
+                const recordDate = parseDateString(record.date);
+                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'bistro' && !isStockRecord(record);
             }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
             const monthAlegra = productionHistory.filter(record => {
-                const recordDate = new Date(record.date);
-                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'alegra';
+                const recordDate = parseDateString(record.date);
+                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'alegra' && !isStockRecord(record);
             }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
             const monthFolha = productionHistory.filter(record => {
-                const recordDate = new Date(record.date);
-                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'folha';
+                const recordDate = parseDateString(record.date);
+                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'folha' && !isStockRecord(record);
             }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
             const monthCoral = productionHistory.filter(record => {
-                const recordDate = new Date(record.date);
-                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'coral';
+                const recordDate = parseDateString(record.date);
+                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'coral' && !isStockRecord(record);
             }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
             
             // Calcular eficiência por modelo
@@ -2452,7 +2658,10 @@ if (mainTabs) {
             const operatorData = {};
             const operatorDataPerModel = { bistro: {}, alegra: {}, folha: {}, coral: {} };
 
+            // ignorar movimentações de estoque manual
+            function isStockRecord(rec) { return rec.tipo === 'estoque' || rec.period === 'manual'; }
             productionHistory.forEach(record => {
+                if (isStockRecord(record)) return;
                 const value = (record.quantity || 0) - (record.losses || 0);
                 if (!record.model) return;
                 modelData[record.model] = (modelData[record.model] || 0) + value;
@@ -2642,6 +2851,8 @@ if (mainTabs) {
             document.getElementById('editQuantity').value = record.quantity;
             document.getElementById('editLosses').value = record.losses || 0;
             document.getElementById('editDate').value = record.date;
+            document.getElementById('editColor').value = record.color || '';
+            document.getElementById('editTime').value = record.time || getRecordTime(record);
             document.getElementById('editNotes').value = record.notes || '';
             
             // Mostrar formulário
@@ -2691,11 +2902,17 @@ if (mainTabs) {
             const model = document.getElementById('editModel').value;
             const quantity = parseInt(document.getElementById('editQuantity').value);
             const losses = parseInt(document.getElementById('editLosses').value) || 0;
-            const date = document.getElementById('editDate').value;
+            const date = normalizeDate(document.getElementById('editDate').value);
+            const color = document.getElementById('editColor').value;
+            const time = document.getElementById('editTime').value;
             const notes = document.getElementById('editNotes').value;
             
             if (!operatorId || !model || !quantity || !date) {
                 showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
+                return;
+            }
+            if (!color) {
+                showNotification('Por favor, informe a cor da cadeira.', 'error');
                 return;
             }
             
@@ -2708,9 +2925,11 @@ if (mainTabs) {
                     operatorName: operator ? operator.name : 'Operador Desconhecido',
                     model: model,
                     quantity: quantity,
-                    losses: losses,
                     date: date,
+                    losses: losses,
                     notes: notes,
+                    color: color,
+                    time: time,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     updatedBy: currentUser.uid
                 };
@@ -2797,6 +3016,53 @@ if (mainTabs) {
             }
         });
         
+        // Reset mensal
+        document.getElementById('resetMonthlyData').addEventListener('click', async () => {
+            if (userRole !== 'admin') {
+                showNotification('Apenas administradores podem resetar dados.', 'error');
+                return;
+            }
+            
+            if (!confirm('Tem certeza que deseja arquivar dados do mês anterior? Esta ação não pode ser desfeita!')) {
+                return;
+            }
+            
+            try {
+                const now = new Date();
+                const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthStr = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0');
+                
+                // Buscar e arquivar todos os registros do mês anterior
+                const snapshot = await db.collection('production')
+                    .where('month', '==', lastMonthStr)
+                    .get();
+                
+                if (snapshot.empty) {
+                    showNotification('Nenhum registro encontrado para o mês anterior.', 'info');
+                    return;
+                }
+                
+                const batch = db.batch();
+                snapshot.forEach(doc => {
+                    batch.update(db.collection('production').doc(doc.id), {
+                        archived: true,
+                        archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        archivedBy: currentUser.uid
+                    });
+                });
+                await batch.commit();
+                
+                showNotification(snapshot.size + ' registros do mês anterior foram arquivados com sucesso!', 'success');
+                localStorage.setItem('lastResetMonth', currentMonth);
+                await loadProductionHistory();
+                
+            } catch (error) {
+                console.error('Erro ao resetar dados:', error);
+                showNotification('Erro ao resetar dados mensais', 'error');
+            }
+        });
+        
         // Gerar relatório
         document.getElementById('generateReport').addEventListener('click', async () => {
             if (userRole !== 'admin') {
@@ -2835,7 +3101,7 @@ if (mainTabs) {
             }
 
             // ...relatório de produção normal...
-            let filteredData = productionHistory.filter(record => record.tipo !== 'estoque');
+            let filteredData = productionHistory.filter(record => record.tipo !== 'estoque' && record.archived !== true);
 
             if (operatorId !== 'all') {
                 filteredData = filteredData.filter(record => record.operatorId === operatorId);
@@ -2845,12 +3111,13 @@ if (mainTabs) {
                 filteredData = filteredData.filter(record => record.model === model);
             }
 
-            const end = new Date(endDate);
-            const start = new Date(startDate);
+            // use our parsing helper to avoid timezone shifts
+            const end = parseDateString(endDate);
+            const start = parseDateString(startDate);
 
             filteredData = filteredData.filter(record => {
-                const recordDate = new Date(record.date);
-                return recordDate >= start && recordDate <= end;
+                const recordDate = parseDateString(record.date);
+                return recordDate && recordDate >= start && recordDate <= end;
             });
 
             const totalProduction = filteredData.reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
@@ -2859,20 +3126,62 @@ if (mainTabs) {
 
             const operatorStats = {};
             filteredData.forEach(record => {
-                if (!operatorStats[record.operatorId]) {
-                    operatorStats[record.operatorId] = {
-                        name: record.operatorName,
+                const opId = record.operatorId || 'unknown';
+                const opName = record.operatorName || 'Desconhecido';
+                if (!operatorStats[opId]) {
+                    operatorStats[opId] = {
+                        name: opName,
                         total: 0,
                         count: 0
                     };
                 }
-                operatorStats[record.operatorId].total += (record.quantity - (record.losses || 0));
-                operatorStats[record.operatorId].count++;
+                operatorStats[opId].total += (record.quantity - (record.losses || 0));
+                operatorStats[opId].count++;
             });
 
             const modelStats = {};
             filteredData.forEach(record => {
+                if (!record.model) return; // pular casos inválidos
                 modelStats[record.model] = (modelStats[record.model] || 0) + (record.quantity - (record.losses || 0));
+            });
+
+            // estrutura auxiliar de produção por modelo/operador
+            const modelOperatorData = { bistro:{}, alegra:{}, folha:{}, coral:{} };
+            filteredData.forEach(rec => {
+                if (!rec.model) return;
+                const op = rec.operatorName || rec.operatorId || 'Desconhecido';
+                const val = (rec.quantity || 0) - (rec.losses || 0);
+                if (modelOperatorData[rec.model]) {
+                    modelOperatorData[rec.model][op] = (modelOperatorData[rec.model][op] || 0) + val;
+                }
+            });
+
+            // cálculo de eficiência por operador relativo à meta diária
+            const diffTime = end.getTime() - start.getTime();
+            const daysCount = Math.floor(diffTime / (1000*60*60*24)) + 1;
+            const operatorModelTotals = {};
+            filteredData.forEach(rec => {
+                const opId = rec.operatorId || 'unknown';
+                operatorModelTotals[opId] = operatorModelTotals[opId] || {bistro:0,alegra:0,folha:0,coral:0};
+                if (rec.model && operatorModelTotals[opId][rec.model] !== undefined) {
+                    operatorModelTotals[opId][rec.model] += (rec.quantity || 0) - (rec.losses || 0);
+                }
+            });
+            const modelsToConsider = model !== 'all' ? [model] : ['bistro','alegra','folha','coral'];
+            const opEfficiency = {};
+            Object.entries(operatorModelTotals).forEach(([opId, totals]) => {
+                let sumPercent = 0, countModels = 0;
+                modelsToConsider.forEach(m => {
+                    const target = systemSettings[m + 'Target'] || 0;
+                    if (target > 0) {
+                        const expected = target * daysCount;
+                        const actual = totals[m] || 0;
+                        const pct = expected ? Math.min((actual / expected) * 100, 200) : 0;
+                        sumPercent += pct;
+                        countModels++;
+                    }
+                });
+                opEfficiency[opId] = countModels ? (sumPercent / countModels) : 0;
             });
 
             let reportHTML = '';
@@ -2887,7 +3196,7 @@ if (mainTabs) {
 
             Object.values(operatorStats).forEach(stat => {
                 reportHTML += '<tr>' +
-                    '<td>' + escapeHtml(stat.name) + '</td>' +
+                    '<td>' + escapeHtml(stat.name || 'Desconhecido') + '</td>' +
                     '<td>' + escapeHtml(stat.total) + ' unidades</td>' +
                     '<td>' + escapeHtml(stat.count) + '</td>' +
                     '<td>' + escapeHtml((stat.total / stat.count).toFixed(2)) + ' unidades</td>' +
@@ -2910,7 +3219,84 @@ if (mainTabs) {
 
             reportHTML += '</tbody></table>';
 
+            // inserir contêineres de gráfico
+            reportHTML += '<h4 style="margin-top: 20px;">Gráfico: Eficiência por Operador</h4>';
+            reportHTML += '<div class="chart-container"><canvas id="efficiencyChart"></canvas></div>';
+            ['bistro','alegra','folha','coral'].forEach(m => {
+                reportHTML += '<h4 style="margin-top: 20px;">Produção por Operador - ' + getModelName(m) + '</h4>';
+                reportHTML += '<div class="chart-container"><canvas id="modelOperators_' + m + '"></canvas></div>';
+            });
+
             document.getElementById('reportResult').innerHTML = reportHTML;
+
+            // criar gráficos após o DOM ser atualizado (ajuda quando a aba estava oculta)
+            requestAnimationFrame(() => {
+                // agora gerar os gráficos
+                function createChart(canvasId, labels, dataValues, labelText, valueSuffix = '', chartType = 'bar', customColors = null, targetValue = null) {
+                    try {
+                        const el = document.getElementById(canvasId);
+                        if (!el) return;
+                        // destroy existing chart instance if present
+                        if (window[canvasId] && typeof window[canvasId].destroy === 'function') {
+                            window[canvasId].destroy();
+                        }
+                        const ctx = el.getContext('2d');
+                        const palette = ['#00a859','#6bc9a5','#ff6b6b','#4ecdc4','#ffe66d','#ff9a76','#a29bfe','#ffa69e','#7bd389'];
+                        const colors = customColors || labels.map((_, i) => palette[i % palette.length]);
+                        
+                        // datasets: sempre um para os dados principais
+                        const datasets = [
+                            { label: labelText, data: dataValues, backgroundColor: colors, borderColor: colors, borderWidth: 1, fill: false }
+                        ];
+                        
+                        // se houver targetValue, adicionar linha de meta
+                        if (targetValue !== null) {
+                            datasets.push({
+                                label: 'Meta (100%)',
+                                data: labels.map(() => targetValue),
+                                borderColor: '#ff6b6b',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0,
+                                tension: 0
+                            });
+                        }
+                        
+                        window[canvasId] = new Chart(ctx, {
+                            type: chartType,
+                            data: { labels: labels, datasets: datasets },
+                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => v + valueSuffix } } } }
+                        });
+                    } catch (e) {
+                        console.error('Erro ao criar gráfico', canvasId, e);
+                    }
+                }
+
+                // eficiência relativa agora usa opEfficiency e destaca o melhor
+            const effLabels = [];
+            const effData = [];
+            const effColors = [];
+            Object.entries(opEfficiency).forEach(([opId, pct]) => {
+                effLabels.push(operatorStats[opId] ? operatorStats[opId].name : opId);
+                effData.push(pct);
+                effColors.push('#00a859');
+            });
+            const bestIdx = effData.indexOf(Math.max(...effData));
+            if (bestIdx !== -1) effColors[bestIdx] = '#ffcf00';
+            createChart('efficiencyChart', effLabels, effData, 'Eficiência sobre meta (%)', '%', 'line', effColors, 100);
+
+                // gráficos por modelo ainda por operador (mesmo funcionamento)
+                ['bistro','alegra','folha','coral'].forEach(m => {
+                    const map = modelOperatorData[m] || {};
+                    const labels = Object.keys(map);
+                    const dataVals = labels.map(l => map[l]);
+                    if (labels.length) {
+                        createChart('modelOperators_' + m, labels, dataVals, 'Produção - ' + getModelName(m), '', 'line');
+                    }
+                });
+            });
+
             showNotification('Relatório gerado com sucesso!', 'success');
         });
         
@@ -2989,6 +3375,8 @@ if (mainTabs) {
             document.getElementById('editQuantity').value = record.quantity;
             document.getElementById('editLosses').value = record.losses || 0;
             document.getElementById('editDate').value = record.date;
+            document.getElementById('editColor').value = record.color || '';
+            document.getElementById('editTime').value = record.time || getRecordTime(record);
             document.getElementById('editNotes').value = record.notes || '';
             
             // Mostrar formulário
@@ -3062,7 +3450,9 @@ if (mainTabs) {
                         operatorName: 'Estoque Inicial',
                         date,
                         period: 'manual',
-                        tipo: 'estoque', // <-- campo para diferenciar
+                        tipo: 'estoque',
+                        month: new Date(date).getFullYear() + '-' + String(new Date(date).getMonth() + 1).padStart(2, '0'),
+                        archived: false,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         createdBy: currentUser ? currentUser.uid : 'manual',
                         baixa: false
@@ -3184,3 +3574,4 @@ if (mainTabs) {
     </script>
 </body>
 </html>
+
