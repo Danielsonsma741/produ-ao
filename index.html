@@ -1436,6 +1436,9 @@
                             <button id="generateReport" class="btn">
                                 <i class="fas fa-chart-bar"></i> Gerar Relatório
                             </button>
+                            <button id="generateStockReport" class="btn btn-secondary">
+                                <i class="fas fa-warehouse"></i> Relatório de Estoque
+                            </button>
                             <button id="exportReport" class="btn btn-secondary">
                                 <i class="fas fa-file-export"></i> Exportar para Excel
                             </button>
@@ -1454,6 +1457,11 @@
                             <p style="text-align: center; color: #666; padding: 40px;">
                                 Selecione os filtros e clique em "Gerar Relatório" para visualizar os dados.
                             </p>
+                        </div>
+                        <div class="report-visualization-actions" style="margin-top:16px; text-align:right;">
+                            <button id="printReportPage" class="btn btn-secondary">
+                                <i class="fas fa-print"></i> Imprimir Relatório
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1665,6 +1673,7 @@
         let currentUser = null;
         let currentUserPassword = '';
         let userRole = 'operador';
+        let lastReportContext = null;
         
         // Listener para persistência de login
         firebase.auth().onAuthStateChanged(async (user) => {
@@ -2651,48 +2660,246 @@
         });
         
         document.getElementById('generateReport').addEventListener('click', async () => {
+            await generateDefaultReport();
+        });
+
+        document.getElementById('generateStockReport').addEventListener('click', async () => {
+            await generateStockReport();
+        });
+
+        async function generateDefaultReport() {
             const reportType = document.getElementById('reportType').value;
-            if (reportType === 'estoque') {
-                const snapshot = await db.collection('estoque').get();
-                let html = '<h3>Relatório de Estoque Atual</h3><table class="admin-table"><thead><tr><th>Modelo</th><th>Cor</th><th>Quantidade</th></tr></thead><tbody>';
-                snapshot.forEach(doc => {
-                    const item = doc.data();
-                    html += `<tr><td>${getModelName(item.modelo)}</td><td>${item.cor}</td><td>${item.quantidade}</td></tr>`;
-                });
-                html += '</tbody></table>';
-                document.getElementById('reportResult').innerHTML = html;
-                showNotification('Relatório de estoque gerado!', 'success');
-                return;
-            }
-            
             const startDate = document.getElementById('reportStartDate').value;
             const endDate = document.getElementById('reportEndDate').value;
             const operatorId = document.getElementById('reportOperator').value;
             const model = document.getElementById('reportModel').value;
-            
+            const start = parseDateString(startDate);
+            const end = parseDateString(endDate);
+
+            if (reportType === 'estoque') {
+                await generateStockReport();
+                return;
+            }
+
             let filtered = productionHistory.filter(r => r.tipo !== 'estoque' && r.archived !== true);
             if (operatorId !== 'all') filtered = filtered.filter(r => r.operatorId === operatorId);
             if (model !== 'all') filtered = filtered.filter(r => r.model === model);
-            const start = parseDateString(startDate);
-            const end = parseDateString(endDate);
             filtered = filtered.filter(r => { const d = parseDateString(r.date); return d && d >= start && d <= end; });
-            
+
             const total = filtered.reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
             let html = `<h3>Relatório de Produção</h3><p>Período: ${startDate} a ${endDate}</p><p>Total: ${total} unidades</p><table class="admin-table"><thead><tr><th>Data</th><th>Operador</th><th>Modelo</th><th>Cor</th><th>Quant. Líq</th></tr></thead><tbody>`;
             filtered.forEach(r => html += `<tr><td>${r.date}</td><td>${r.operatorName || '-'}</td><td>${getModelName(r.model)}</td><td>${r.color || '-'}</td><td>${(r.quantity||0)-(r.losses||0)}</td></tr>`);
             html += '</tbody></table>';
             document.getElementById('reportResult').innerHTML = html;
+            lastReportContext = { type: 'producao', html };
             showNotification('Relatório gerado!', 'success');
-        });
-        
-        document.getElementById('exportReport').addEventListener('click', () => showNotification('Exportação em desenvolvimento.', 'info'));
+        }
+
+        async function generateStockReport() {
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+            const operatorId = document.getElementById('reportOperator').value;
+            const model = document.getElementById('reportModel').value;
+            const start = parseDateString(startDate);
+            const end = parseDateString(endDate);
+
+            const estoqueSnapshot = await db.collection('estoque').orderBy('modelo').get();
+            const stockItems = [];
+            let totalStock = 0;
+            estoqueSnapshot.forEach(doc => {
+                const item = doc.data();
+                stockItems.push(item);
+                totalStock += item.quantidade || 0;
+            });
+
+            const productionSnapshot = await db.collection('production').get();
+            const stockMovements = [];
+            productionSnapshot.forEach(doc => {
+                const rec = { id: doc.id, ...doc.data() };
+                if (rec.archived === true) return;
+                if (!rec.model || !rec.color) return;
+
+                const movementDate = parseDateString(rec.date);
+                if (startDate && endDate && (!movementDate || movementDate < start || movementDate > end)) return;
+                if (model !== 'all' && rec.model !== model) return;
+                if (operatorId !== 'all' && rec.operatorId !== operatorId) return;
+
+                const netQuantity = (parseInt(rec.quantity) || 0) - (parseInt(rec.losses) || 0);
+                const movimento = rec.tipo === 'baixa_estoque' || rec.periodo === 'baixa' ? 'Saída'
+                    : rec.tipo === 'ajuste_manual' || rec.periodo === 'manual' ? 'Ajuste'
+                    : 'Entrada';
+
+                stockMovements.push({
+                    date: rec.date,
+                    operator: rec.operatorName || rec.operatorId || 'Sistema',
+                    model: rec.model,
+                    color: rec.color,
+                    quantity: netQuantity,
+                    tipo: movimento,
+                    notes: rec.notes || rec.operacao || ''
+                });
+            });
+
+            const totalEntradas = stockMovements.filter(m => m.tipo !== 'Saída').reduce((sum, m) => sum + m.quantity, 0);
+            const totalSaidas = stockMovements.filter(m => m.tipo === 'Saída').reduce((sum, m) => sum + m.quantity, 0);
+            const totalAjustes = stockMovements.filter(m => m.tipo === 'Ajuste').reduce((sum, m) => sum + m.quantity, 0);
+
+            const totalByModelColor = {};
+            stockItems.forEach(item => {
+                const key = `${item.modelo}|${item.cor}`;
+                totalByModelColor[key] = (totalByModelColor[key] || 0) + (item.quantidade || 0);
+            });
+
+            const totalsTableRows = Object.keys(totalByModelColor).length === 0
+                ? '<tr><td colspan="3" style="text-align:center;color:#888;">Nenhum item em estoque.</td></tr>'
+                : Object.entries(totalByModelColor).map(([key, quantity]) => {
+                    const [modelo, cor] = key.split('|');
+                    return `<tr><td>${getModelName(modelo)}</td><td>${cor}</td><td>${quantity}</td></tr>`;
+                }).join('');
+
+            const movementsTableRows = stockMovements.length === 0
+                ? '<tr><td colspan="7" style="text-align:center;color:#888;">Nenhuma movimentação encontrada.</td></tr>'
+                : stockMovements.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0)).map(m =>
+                    `<tr><td>${m.date}</td><td>${m.operator}</td><td>${getModelName(m.model)}</td><td>${m.color}</td><td>${m.tipo}</td><td>${m.quantity}</td><td>${m.notes || '-'}</td></tr>`
+                ).join('');
+
+            let html = `<h3>Relatório de Estoque</h3>`;
+            html += `<p>Período: ${startDate || 'início'} até ${endDate || 'hoje'}</p>`;
+            html += `<p>Total Atual no Estoque: <strong>${totalStock}</strong> unidades</p>`;
+            html += `<p>Entradas: <strong>${totalEntradas}</strong> | Saídas: <strong>${totalSaidas}</strong> | Ajustes: <strong>${totalAjustes}</strong></p>`;
+            html += '<div class="chart-section"><div class="chart-container"><canvas id="stockModelChart"></canvas></div><div class="chart-container"><canvas id="stockColorChart"></canvas></div></div>';
+            html += '<h4>Totais por Modelo e Cor</h4><table class="admin-table"><thead><tr><th>Modelo</th><th>Cor</th><th>Quantidade</th></tr></thead><tbody>' + totalsTableRows + '</tbody></table>';
+            html += '<h4>Movimentações de Estoque</h4><table class="admin-table"><thead><tr><th>Data</th><th>Operador</th><th>Modelo</th><th>Cor</th><th>Tipo</th><th>Quantidade</th><th>Observações</th></tr></thead><tbody>' + movementsTableRows + '</tbody></table>';
+
+            document.getElementById('reportResult').innerHTML = html;
+            lastReportContext = {
+                type: 'estoque',
+                stockData: stockItems,
+                totalsByModelColor: totalByModelColor,
+                stockMovements,
+                totalStock,
+                totalEntradas,
+                totalSaidas,
+                totalAjustes,
+                period: `${startDate || 'início'} até ${endDate || 'hoje'}`
+            };
+            renderStockReportCharts(lastReportContext, document);
+            showNotification('Relatório de estoque completo gerado!', 'success');
+        }
+
+        function renderStockReportCharts(context, targetDocument) {
+            if (!context || context.type !== 'estoque') return;
+            const modelTotals = {};
+            const colorTotals = {};
+            context.stockData.forEach(item => {
+                modelTotals[item.modelo] = (modelTotals[item.modelo] || 0) + (item.quantidade || 0);
+                colorTotals[item.color] = (colorTotals[item.color] || 0) + (item.quantidade || 0);
+            });
+
+            const modelLabels = Object.keys(modelTotals).map(m => getModelName(m));
+            const modelValues = Object.values(modelTotals);
+            const colorLabels = Object.keys(colorTotals);
+            const colorValues = Object.values(colorTotals);
+            const palette = ['#00a859', '#4ecdc4', '#ff6b6b', '#ffe66d', '#a29bfe', '#ff9a76', '#6c757d'];
+
+            const modelCtx = targetDocument.getElementById('stockModelChart');
+            if (modelCtx) {
+                if (targetDocument.defaultView.window.stockModelChart instanceof Chart) targetDocument.defaultView.window.stockModelChart.destroy();
+                targetDocument.defaultView.window.stockModelChart = new Chart(modelCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: { labels: modelLabels, datasets: [{ label: 'Estoque por Modelo', data: modelValues, backgroundColor: palette }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+
+            const colorCtx = targetDocument.getElementById('stockColorChart');
+            if (colorCtx) {
+                if (targetDocument.defaultView.window.stockColorChart instanceof Chart) targetDocument.defaultView.window.stockColorChart.destroy();
+                targetDocument.defaultView.window.stockColorChart = new Chart(colorCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: { labels: colorLabels, datasets: [{ label: 'Estoque por Cor', data: colorValues, backgroundColor: palette }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+        }
+
+        document.getElementById('exportReport').addEventListener('click', exportReportToExcel);
         document.getElementById('printReport').addEventListener('click', () => {
             const content = document.getElementById('reportResult').innerHTML;
             if (!content) return;
+
             const win = window.open('', '_blank');
-            win.document.write(`<html><head><title>Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0}</style></head><body>${content}</body></html>`);
+            let html = `<html><head><title>Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0} .chart-container{width:100%;max-width:600px;height:320px;margin-bottom:24px;}</style>`;
+            if (lastReportContext && lastReportContext.type === 'estoque') {
+                html += '<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>';
+            }
+            html += `</head><body>${content}`;
+            if (lastReportContext && lastReportContext.type === 'estoque') {
+                const modelTotals = {};
+                const colorTotals = {};
+                lastReportContext.stockData.forEach(item => {
+                    modelTotals[item.modelo] = (modelTotals[item.modelo] || 0) + (item.quantidade || 0);
+                    colorTotals[item.color] = (colorTotals[item.color] || 0) + (item.quantidade || 0);
+                });
+                const modelLabels = JSON.stringify(Object.keys(modelTotals).map(m => getModelName(m)));
+                const modelValues = JSON.stringify(Object.values(modelTotals));
+                const colorLabels = JSON.stringify(Object.keys(colorTotals));
+                const colorValues = JSON.stringify(Object.values(colorTotals));
+                const palette = JSON.stringify(['#00a859', '#4ecdc4', '#ff6b6b', '#ffe66d', '#a29bfe', '#ff9a76', '#6c757d']);
+
+                html += '<script>window.addEventListener(\'load\', function(){\n'
+                    + `const palette=${palette};\n`
+                    + `const modelCtx=document.getElementById(\'stockModelChart\').getContext(\'2d\');\n`
+                    + `new Chart(modelCtx,{type:'bar',data:{labels:${modelLabels},datasets:[{label:'Estoque por Modelo',data:${modelValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});\n`
+                    + `const colorCtx=document.getElementById(\'stockColorChart\').getContext(\'2d\');\n`
+                    + `new Chart(colorCtx,{type:'doughnut',data:{labels:${colorLabels},datasets:[{label:'Estoque por Cor',data:${colorValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});\n`
+                    + `});<\/script>`;
+            }
+            html += `</body></html>`;
+            win.document.write(html);
             win.document.close();
         });
+
+        document.getElementById('printReportPage').addEventListener('click', () => {
+            const content = document.getElementById('reportResult').innerHTML;
+            if (!content || !lastReportContext) {
+                showNotification('Nenhum relatório disponível para impressão.', 'warning');
+                return;
+            }
+
+            const win = window.open('', '_blank');
+            const html = `<html><head><meta charset="UTF-8"><title>Imprimir Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0}</style></head><body>${content}</body></html>`;
+            win.document.write(html);
+            win.document.close();
+            win.focus();
+            win.print();
+        });
+
+        function exportReportToExcel() {
+            if (!lastReportContext) {
+                showNotification('Nenhum relatório disponível para exportação.', 'warning');
+                return;
+            }
+
+            const content = document.getElementById('reportResult').innerHTML;
+            if (!content) {
+                showNotification('Nenhum relatório disponível para exportação.', 'warning');
+                return;
+            }
+
+            const filename = lastReportContext.type === 'estoque' ? 'relatorio-estoque.xls' : 'relatorio-producao.xls';
+            const excelHtml = `<html><head><meta charset="UTF-8"><title>Relatório</title><style>table{border-collapse:collapse;}th,td{border:1px solid #ddd;padding:8px;}th{background:#f0f0f0;}</style></head><body>${content}</body></html>`;
+            const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showNotification('Relatório exportado para Excel.', 'success');
+        }
         
         function getErrorMessage(errorCode) {
             const errors = { 'auth/invalid-email': 'E-mail inválido.', 'auth/user-not-found': 'Usuário não encontrado.', 'auth/wrong-password': 'Senha incorreta.', 'auth/too-many-requests': 'Muitas tentativas.' };
