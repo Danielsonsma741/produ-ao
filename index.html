@@ -1458,11 +1458,6 @@
                                 Selecione os filtros e clique em "Gerar Relatório" para visualizar os dados.
                             </p>
                         </div>
-                        <div class="report-visualization-actions" style="margin-top:16px; text-align:right;">
-                            <button id="printReportPage" class="btn btn-secondary">
-                                <i class="fas fa-print"></i> Imprimir Relatório
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -2829,11 +2824,12 @@
             if (!content) return;
 
             const win = window.open('', '_blank');
-            let html = `<html><head><title>Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0} .chart-container{width:100%;max-width:600px;height:320px;margin-bottom:24px;}</style>`;
+            let html = `<html><head><title>Visualizar Relatório</title><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0} .chart-container{width:100%;max-width:600px;height:320px;margin-bottom:24px;} .print-button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-bottom:16px;}</style>`;
             if (lastReportContext && lastReportContext.type === 'estoque') {
                 html += '<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>';
             }
-            html += `</head><body>${content}`;
+            html += `</head><body><button id="printPreviewButton" class="print-button"><i class="fas fa-print"></i> Imprimir Relatório</button>${content}`;
+
             if (lastReportContext && lastReportContext.type === 'estoque') {
                 const modelTotals = {};
                 const colorTotals = {};
@@ -2849,30 +2845,20 @@
 
                 html += '<script>window.addEventListener(\'load\', function(){\n'
                     + `const palette=${palette};\n`
-                    + `const modelCtx=document.getElementById(\'stockModelChart\').getContext(\'2d\');\n`
-                    + `new Chart(modelCtx,{type:'bar',data:{labels:${modelLabels},datasets:[{label:'Estoque por Modelo',data:${modelValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});\n`
-                    + `const colorCtx=document.getElementById(\'stockColorChart\').getContext(\'2d\');\n`
-                    + `new Chart(colorCtx,{type:'doughnut',data:{labels:${colorLabels},datasets:[{label:'Estoque por Cor',data:${colorValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});\n`
+                    + `const modelCanvas=document.getElementById(\'stockModelChart\');\n`
+                    + `const colorCanvas=document.getElementById(\'stockColorChart\');\n`
+                    + `if(modelCanvas){const modelCtx=modelCanvas.getContext(\'2d\'); new Chart(modelCtx,{type:'bar',data:{labels:${modelLabels},datasets:[{label:'Estoque por Modelo',data:${modelValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});}\n`
+                    + `if(colorCanvas){const colorCtx=colorCanvas.getContext(\'2d\'); new Chart(colorCtx,{type:'doughnut',data:{labels:${colorLabels},datasets:[{label:'Estoque por Cor',data:${colorValues},backgroundColor:palette}]},options:{responsive:true,maintainAspectRatio:false}});}\n`
+                    + `const printButton=document.getElementById(\'printPreviewButton\');\n`
+                    + `if(printButton){ printButton.addEventListener(\'click\', function(){ window.print(); }); }\n`
                     + `});<\/script>`;
+            } else {
+                html += '<script>window.addEventListener(\'load\', function(){ const printButton=document.getElementById(\'printPreviewButton\'); if(printButton){ printButton.addEventListener(\'click\', function(){ window.print(); }); } });<\/script>';
             }
+
             html += `</body></html>`;
             win.document.write(html);
             win.document.close();
-        });
-
-        document.getElementById('printReportPage').addEventListener('click', () => {
-            const content = document.getElementById('reportResult').innerHTML;
-            if (!content || !lastReportContext) {
-                showNotification('Nenhum relatório disponível para impressão.', 'warning');
-                return;
-            }
-
-            const win = window.open('', '_blank');
-            const html = `<html><head><meta charset="UTF-8"><title>Imprimir Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0}</style></head><body>${content}</body></html>`;
-            win.document.write(html);
-            win.document.close();
-            win.focus();
-            win.print();
         });
 
         function exportReportToExcel() {
