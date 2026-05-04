@@ -1924,15 +1924,15 @@
                 document.querySelectorAll('#operatorAdminContent, #reportAdminContent, #adminContent').forEach(content => content.classList.remove('hidden'));
             } else {
                 adminTabs.forEach(tab => tab.classList.add('hidden'));
-                dashboardTab.classList.add('hidden');
+                dashboardTab.classList.remove('hidden');
                 historyTab.classList.add('hidden');
                 producaoTotalTab.classList.add('hidden');
-                estoqueTab.classList.remove('hidden');
+                estoqueTab.classList.add('hidden');
                 registerTab.classList.remove('hidden');
                 warningsTab.classList.remove('hidden');
                 const activeTab = document.querySelector('.tab.active');
-                if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') !== 'register')) {
-                    switchTab('register');
+                if (activeTab && activeTab.classList.contains('hidden')) {
+                    switchTab('dashboard');
                 }
             }
         }
