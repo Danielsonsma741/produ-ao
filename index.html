@@ -1,32 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-        <script>
-        // Garantir que o usuário permaneça logado após recarregar
-        document.addEventListener('DOMContentLoaded', function() {
-            firebase.auth().onAuthStateChanged(async function(user) {
-                if (user) {
-                    // Usuário autenticado, simular pós-login
-                    currentUser = user;
-                    // Buscar role do Firestore
-                    const userDocRef = db.collection('users').doc(user.uid);
-                    const userDoc = await userDocRef.get();
-                    userRole = userDoc.exists && userDoc.data().role ? userDoc.data().role : 'operador';
-                    document.getElementById('userName').textContent = user.email.split('@')[0];
-                    document.getElementById('userRole').textContent = userRole === 'admin' ? 'Administrador' : 'Operador';
-                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
-                    setupUserPermissions();
-                    loadSystemData();
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    document.getElementById('mainApp').classList.remove('hidden');
-                } else {
-                    // Não autenticado, mostrar tela de login
-                    document.getElementById('mainApp').classList.add('hidden');
-                    document.getElementById('loginScreen').classList.remove('hidden');
-                }
-            });
-        });
-        </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ambipar - Sistema de Produção</title>
@@ -68,7 +42,7 @@
         }
         
         body {
-            background-color: #39ff14;
+            background-color: #f0f7f0;
             color: #333;
             line-height: 1.6;
             min-height: 100vh;
@@ -1141,6 +1115,56 @@
                                     </div>
                         <div id="estoque" class="tab-content">
                             <h2 class="section-title"><i class="fas fa-warehouse"></i> Estoque de Cadeiras</h2>
+                            
+                            <!-- NOVO: Card para Adicionar Estoque Manualmente (Ajuste direto) -->
+                            <div class="card" style="background: #e8f5e9;">
+                                <h3 class="section-title"><i class="fas fa-hand-holding-heart"></i> Ajuste Manual de Estoque</h3>
+                                <p style="margin-bottom: 15px; color: #2e7d32;">Use este formulário para adicionar ou remover cadeiras do estoque manualmente (ex: estoque inicial, correções, devoluções).</p>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label><i class="fas fa-chair"></i> Modelo</label>
+                                        <select id="manualModel">
+                                            <option value="">Selecione</option>
+                                            <option value="bistro">Cadeira Bistro</option>
+                                            <option value="alegra">Cadeira Alegra</option>
+                                            <option value="folha">Cadeira Folha</option>
+                                            <option value="coral">Cadeira Coral</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-palette"></i> Cor</label>
+                                        <select id="manualColor">
+                                            <option value="">Selecione</option>
+                                            <option value="preto">Preto</option>
+                                            <option value="branco">Branco</option>
+                                            <option value="terra cota">Terra Cota</option>
+                                            <option value="vermelho">Vermelho</option>
+                                            <option value="bege">Bege</option>
+                                            <option value="cinza grafite">Cinza Grafite</option>
+                                            <option value="prata">Prata</option>
+                                            <option value="verde agua">Verde Água</option>
+                                            <option value="vermelho cebola">Vermelho Cebola</option>
+                                            <option value="azul bic">Azul Bic</option>
+                                            <option value="azul musco">Azul Musco</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-plus-circle"></i> Quantidade (+ adicionar / - remover)</label>
+                                        <input type="number" id="manualQuantity" min="1" placeholder="Ex: 10">
+                                    </div>
+                                    <div class="form-group">
+                                        <label><i class="fas fa-info-circle"></i> Tipo de operação</label>
+                                        <select id="manualOperation">
+                                            <option value="add">➕ Adicionar ao estoque</option>
+                                            <option value="remove">➖ Remover do estoque</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button id="ajusteManualEstoque" class="btn">
+                                    <i class="fas fa-sync-alt"></i> Aplicar Ajuste Manual
+                                </button>
+                            </div>
+                            
                             <div class="card">
                                 <h3 class="section-title">Dar Baixa de Estoque</h3>
                                 <p style="margin-bottom: 20px; color: #666;">Remova cadeiras do estoque automaticamente selecionando o modelo, cor e quantidade.</p>
@@ -1182,7 +1206,7 @@
                                 </button>
                             </div>
                             <div class="card">
-                                <h3 class="section-title">Cadeiras Disponíveis</h3>
+                                <h3 class="section-title">Cadeiras Disponíveis no Estoque</h3>
                                 <div id="estoqueLoading" class="loading" style="display:none;">
                                     <i class="fas fa-spinner fa-spin"></i> Carregando estoque...
                                 </div>
@@ -1196,7 +1220,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="estoqueList">
-                                        <!-- Itens de estoque serão carregados aqui -->
+                                        <!-- Itens de estoque serão carregados da coleção 'estoque' -->
                                     </tbody>
                                 </table>
                             </div>
@@ -1620,7 +1644,7 @@
 
     <!-- Configuração do Firebase -->
     <script>
-        // Configuração do Firebase - Substitua com suas credenciais
+        // Configuração do Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyA3a8qIMMLLF4WR3SNmz_G4XDmMPwfUsSg",
             authDomain: "aplicativodeprodutos.firebaseapp.com",
@@ -1636,14 +1660,53 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         
-        // Configuração de segurança (as regras fornecidas)
-        // Estas regras devem ser configuradas no Console do Firebase
-        // Elas bloqueiam todas as operações por padrão
-        // Vamos configurar a autenticação para liberar acesso apenas a usuários autorizados
-        
         // Dados da aplicação
+        const fallbackAdminEmails = ['souza73e@gmail.com', 'admin@ambipar.com'];
         let currentUser = null;
-        let userRole = 'operador'; // Padrão: operador
+        let currentUserPassword = '';
+        let userRole = 'operador';
+        
+        // Listener para persistência de login
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (user) {
+                // Usuário autenticado - restaurar sessão
+                currentUser = user;
+                
+                try {
+                    const userDocRef = db.collection('users').doc(user.uid);
+                    const userDoc = await userDocRef.get();
+                    
+                    // Atribuir role
+                    if (userDoc.exists && userDoc.data().role) {
+                        userRole = userDoc.data().role;
+                    } else {
+                        userRole = fallbackAdminEmails.includes(user.email) ? 'admin' : 'operador';
+                    }
+                    
+                    // Atualizar UI
+                    document.getElementById('userName').textContent = user.email.split('@')[0];
+                    document.getElementById('userRole').textContent = userRole === 'admin' ? 'Administrador' : 'Operador';
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                    
+                    setupUserPermissions();
+                    loadSystemData();
+                    
+                    // Mostrar app, esconder login
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                } catch (error) {
+                    console.error('Erro ao restaurar sessão:', error);
+                    auth.signOut();
+                }
+            } else {
+                // Não autenticado - mostrar tela de login
+                currentUser = null;
+                userRole = 'operador';
+                currentUserPassword = '';
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('loginScreen').classList.remove('hidden');
+            }
+        });
         let operators = [];
         let productionHistory = [];
         let systemSettings = {
@@ -1651,29 +1714,93 @@
             efficiencyGoal: 85
         };
         
+        // --- Função para atualizar estoque na coleção separada ---
+        async function atualizarEstoque(modelo, cor, quantidade, operacao) {
+            // operacao: 'somar' ou 'subtrair'
+            const docId = `${modelo}_${cor}`.replace(/\s/g, '_').toLowerCase();
+            const docRef = db.collection('estoque').doc(docId);
+            const doc = await docRef.get();
+            const qtdAtual = doc.exists ? (doc.data().quantidade || 0) : 0;
+            let novaQtd = qtdAtual;
+            if (operacao === 'somar') {
+                novaQtd = qtdAtual + quantidade;
+            } else if (operacao === 'subtrair') {
+                novaQtd = Math.max(0, qtdAtual - quantidade);
+            }
+            
+            if (novaQtd === 0 && doc.exists) {
+                await docRef.delete();
+            } else if (novaQtd > 0) {
+                await docRef.set({
+                    modelo: modelo,
+                    cor: cor,
+                    quantidade: novaQtd,
+                    ultimaAtualizacao: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            return novaQtd;
+        }
+        
+        // --- Função para carregar estoque da coleção separada ---
+        async function loadEstoque() {
+            const estoqueList = document.getElementById('estoqueList');
+            const estoqueLoading = document.getElementById('estoqueLoading');
+            estoqueList.innerHTML = '';
+            estoqueLoading.style.display = 'block';
+            try {
+                const snapshot = await db.collection('estoque').orderBy('modelo').get();
+                if (snapshot.empty) {
+                    estoqueList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:24px;">Nenhum item no estoque. Adicione via "Ajuste Manual" ou registre produção.</td></tr>';
+                } else {
+                    snapshot.forEach(doc => {
+                        const item = doc.data();
+                        const row = document.createElement('tr');
+                        const modelName = { bistro:'Cadeira Bistro', alegra:'Cadeira Alegra', folha:'Cadeira Folha', coral:'Cadeira Coral' }[item.modelo] || item.modelo;
+                        row.innerHTML = `
+                            <td>${modelName}</td>
+                            <td><span style="padding:3px 12px;border-radius:12px;background:#f0f0f0;">${item.cor}</span></td>
+                            <td><strong>${item.quantidade}</strong></td>
+                            <td><button class="action-btn delete-btn" onclick="removerItemEstoque('${doc.id}')"><i class="fas fa-trash-alt"></i> Remover</button></td>
+                        `;
+                        estoqueList.appendChild(row);
+                    });
+                }
+                estoqueLoading.style.display = 'none';
+            } catch (error) {
+                estoqueList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar estoque.</td></tr>';
+                estoqueLoading.style.display = 'none';
+            }
+        }
+        
+        // Função para remover item do estoque
+        window.removerItemEstoque = async function(docId) {
+            if (confirm('Tem certeza que deseja remover este item completamente do estoque?')) {
+                await db.collection('estoque').doc(docId).delete();
+                loadEstoque();
+                showNotification('Item removido do estoque!', 'success');
+            }
+        };
+        
         // --- helpers para trabalhar com datas ---
         function parseDateString(dateStr) {
-            // converte "YYYY-MM-DD" em objeto Date no fuso local
             if (!dateStr) return null;
             const parts = dateStr.split('-').map(Number);
             return new Date(parts[0], parts[1] - 1, parts[2]);
         }
         
         function formatDateString(dateStr) {
-            // formata "YYYY-MM-DD" como "DD/MM/YYYY" para exibição
             if (!dateStr) return '';
             const [y, m, d] = dateStr.split('-');
             return `${d}/${m}/${y}`;
         }
         
-        // extrai hora de um registro (usa campo time ou createdAt)
         function getRecordTime(record) {
             if (record.time) return record.time;
             if (record.createdAt) {
                 let d;
                 if (typeof record.createdAt.toDate === 'function') {
                     d = record.createdAt.toDate();
-                } else if (record.createdAt.seconds) {
+                } else if (record.createdAt && record.createdAt.seconds) {
                     d = new Date(record.createdAt.seconds * 1000);
                 } else {
                     return '';
@@ -1684,7 +1811,6 @@
         }
         
         function normalizeDate(dateInput) {
-            // aceita string ou Date e devolve "YYYY-MM-DD" garantido
             if (dateInput instanceof Date) {
                 const y = dateInput.getFullYear();
                 const m = String(dateInput.getMonth() + 1).padStart(2, '0');
@@ -1698,15 +1824,13 @@
             return '';
         }
         
-        // Inicializar a data atual (normalizada para evitar deslocamentos)
         document.getElementById('date').value = normalizeDate(new Date());
         document.getElementById('reportStartDate').value = normalizeDate(new Date());
         document.getElementById('reportEndDate').value = normalizeDate(new Date());
         
-        // Sistema de login (alterado para e-mail/senha)
+        // Sistema de login
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             
@@ -1718,54 +1842,30 @@
             
             try {
                 const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                currentUser = userCredential.user;
+                currentUserPassword = password;
                 
-                // Salvar log de acesso no Firestore
                 await db.collection('access_logs').add({
-                    uid: currentUser.uid,
+                    uid: userCredential.user.uid,
                     email: email,
                     action: 'login',
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    ip: 'unknown',
                     userAgent: navigator.userAgent
                 });
                 
-                // Definir role baseado no e-mail
-                userRole = email === 'souza73e@gmail.com' ? 'admin' : 'operador';
-                
-                // Buscar ou criar documento do usuário no Firestore
-                const userDocRef = db.collection('users').doc(currentUser.uid);
+                const userDocRef = db.collection('users').doc(userCredential.user.uid);
                 const userDoc = await userDocRef.get();
                 
                 if (!userDoc.exists) {
+                    const newRole = fallbackAdminEmails.includes(email) ? 'admin' : 'operador';
                     await userDocRef.set({
                         email: email,
-                        name: email.split('@')[0], // Nome baseado no e-mail
-                        role: userRole,
+                        name: email.split('@')[0],
+                        role: newRole,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                } else {
-                    const userData = userDoc.data();
-                    userRole = userData.role || userRole; // Usar role salvo se existir
                 }
                 
-                // Atualizar interface com informações do usuário
-                document.getElementById('userName').textContent = email.split('@')[0];
-                document.getElementById('userRole').textContent = userRole === 'admin' ? 'Administrador' : 'Operador';
-                document.getElementById('userAvatar').textContent = email.charAt(0).toUpperCase();
-                
-                // Mostrar apenas as abas apropriadas para o tipo de usuário
-                setupUserPermissions();
-                
-                // Carregar dados do sistema
-                loadSystemData();
-                
-                // Mostrar aplicação principal
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                
-                // Mostrar mensagem de boas-vindas
-                showNotification(`Bem-vindo, ${email.split('@')[0]}!`, 'success');
+                // O onAuthStateChanged vai disparar automaticamente e restaurar a sessão
                 
             } catch (error) {
                 console.error('Erro no login:', error);
@@ -1774,31 +1874,31 @@
             }
         });
         
-        // Logout
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             if (currentUser) {
-                // Salvar log de logout no Firestore
                 await db.collection('access_logs').add({
                     uid: currentUser.uid,
                     email: currentUser.email,
                     action: 'logout',
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    ip: 'unknown',
                     userAgent: navigator.userAgent
                 });
             }
+            // Limpar dados locais antes de fazer logout
+            currentUserPassword = '';
+            currentUser = null;
+            userRole = 'operador';
+            productionHistory = [];
+            operators = [];
             
-            auth.signOut().then(() => {
-                currentUser = null;
-                userRole = 'operador';
-                document.getElementById('mainApp').classList.add('hidden');
-                document.getElementById('loginScreen').classList.remove('hidden');
-                document.getElementById('loginForm').reset();
-                document.getElementById('loginError').style.display = 'none';
-            });
+            // Firebase vai disparar onAuthStateChanged e atualizar a UI
+            await auth.signOut();
+            
+            // Limpar formulário de login
+            document.getElementById('loginForm').reset();
+            document.getElementById('loginError').style.display = 'none';
         });
         
-        // Função para configurar permissões do usuário
         function setupUserPermissions() {
             const adminTabs = document.querySelectorAll('.admin-tab');
             const dashboardTab = document.querySelector('.tab[data-tab="dashboard"]');
@@ -1816,19 +1916,16 @@
                 producaoTotalTab.classList.remove('hidden');
                 estoqueTab.classList.remove('hidden');
                 registerTab.classList.remove('hidden');
-                // Remover avisos de permissão
                 document.querySelectorAll('.permission-warning').forEach(warning => warning.classList.add('hidden'));
                 document.querySelectorAll('#operatorAdminContent, #reportAdminContent, #adminContent').forEach(content => content.classList.remove('hidden'));
             } else {
-                // Operador só pode ver Registrar Produção e Avisos
                 adminTabs.forEach(tab => tab.classList.add('hidden'));
                 dashboardTab.classList.add('hidden');
                 historyTab.classList.add('hidden');
                 producaoTotalTab.classList.add('hidden');
-                estoqueTab.classList.add('hidden');
+                estoqueTab.classList.remove('hidden');
                 registerTab.classList.remove('hidden');
                 warningsTab.classList.remove('hidden');
-                // Se estiver em uma aba escondida, redirecionar para register
                 const activeTab = document.querySelector('.tab.active');
                 if (activeTab && (activeTab.classList.contains('admin-tab') || activeTab.getAttribute('data-tab') !== 'register')) {
                     switchTab('register');
@@ -1836,39 +1933,23 @@
             }
         }
         
-        // Carregar dados do sistema
         async function loadSystemData() {
-            // Carregar operadores
             await loadOperators();
-            
-            // Verificar e executar reset mensal se necessário
             await checkMonthlyReset();
-            
-            // Carregar histórico de produção
             await loadProductionHistory();
-            
-            // Carregar configurações
             await loadSettings();
-            
-            // Carregar avisos
             await loadWarnings();
-            
-            // Atualizar dashboard
+            await loadEstoque(); // Carrega estoque da nova coleção
             updateDashboard();
         }
         
-        // Verifica e executa reset mensal
         async function checkMonthlyReset() {
             try {
                 const now = new Date();
                 const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
                 const lastResetMonth = localStorage.getItem('lastResetMonth');
                 
-                // Se o mês mudou desde o último reset
                 if (lastResetMonth !== currentMonth) {
-                    console.log('Executando reset mensal para:', currentMonth);
-                    
-                    // Marcar todos os registros do mês anterior como archived
                     if (lastResetMonth) {
                         const previousMonth = lastResetMonth;
                         const snapshot = await db.collection('production')
@@ -1884,8 +1965,6 @@
                         });
                         await batch.commit();
                     }
-                    
-                    // Gravar o novo mês como último reset
                     localStorage.setItem('lastResetMonth', currentMonth);
                 }
             } catch (error) {
@@ -1893,108 +1972,75 @@
             }
         }
         
-        // Carregar operadores do Firestore
         async function loadOperators() {
             try {
                 const operatorsSnapshot = await db.collection('operators').get();
                 operators = [];
-                
                 operatorsSnapshot.forEach(doc => {
-                    operators.push({
-                        id: doc.id,
-                        ...doc.data()
-                    });
+                    operators.push({ id: doc.id, ...doc.data() });
                 });
-                
-                // Atualizar selects de operadores
                 updateOperatorSelects();
-                
-                // Atualizar tabela de operadores (se for admin)
                 if (userRole === 'admin') {
                     updateOperatorsTable();
                 }
-                
             } catch (error) {
                 console.error('Erro ao carregar operadores:', error);
                 showNotification('Erro ao carregar operadores', 'error');
             }
         }
         
-        // Atualizar selects de operadores
         function updateOperatorSelects() {
             const operatorSelect = document.getElementById('operator');
             const filterOperatorSelect = document.getElementById('filterOperator');
             const reportOperatorSelect = document.getElementById('reportOperator');
             const editOperatorSelect = document.getElementById('editOperator');
             
-            // Limpar opções atuais (exceto a primeira)
             [operatorSelect, filterOperatorSelect, reportOperatorSelect, editOperatorSelect].forEach(select => {
-                while (select.options.length > 1) {
-                    select.remove(1);
+                if (select) {
+                    while (select.options.length > 1) {
+                        select.remove(1);
+                    }
                 }
             });
             
-            // Adicionar operadores ativos
             operators.filter(op => op.status === 'ativo').forEach(operator => {
                 const option = document.createElement('option');
                 option.value = operator.id;
                 option.textContent = operator.name;
-                operatorSelect.appendChild(option);
-                
-                const filterOption = document.createElement('option');
-                filterOption.value = operator.id;
-                filterOption.textContent = operator.name;
-                filterOperatorSelect.appendChild(filterOption);
-                
-                const reportOption = document.createElement('option');
-                reportOption.value = operator.id;
-                reportOption.textContent = operator.name;
-                reportOperatorSelect.appendChild(reportOption);
-                
-                const editOption = document.createElement('option');
-                editOption.value = operator.id;
-                editOption.textContent = operator.name;
-                editOperatorSelect.appendChild(editOption);
+                if (operatorSelect) operatorSelect.appendChild(option.cloneNode(true));
+                if (filterOperatorSelect) filterOperatorSelect.appendChild(option.cloneNode(true));
+                if (reportOperatorSelect) reportOperatorSelect.appendChild(option.cloneNode(true));
+                if (editOperatorSelect) editOperatorSelect.appendChild(option.cloneNode(true));
             });
         }
         
-        // Carregar histórico de produção
         async function loadProductionHistory() {
             try {
                 document.getElementById('historyLoading').classList.remove('hidden');
-                
                 const historySnapshot = await db.collection('production')
                     .orderBy('createdAt', 'desc')
                     .limit(100)
                     .get();
                 
                 productionHistory = [];
-                
                 historySnapshot.forEach(doc => {
                     const data = doc.data();
-                    // Ignorar registros marcados como archived
                     if (data.archived === true) return;
-                    const rec = {
-                        id: doc.id,
-                        ...data
-                    };
+                    const rec = { id: doc.id, ...data };
                     if (!rec.time && data.createdAt) {
                         rec.time = getRecordTime(rec);
                     }
                     productionHistory.push(rec);
                 });
                 
-                // Sort client-side by date desc, then createdAt desc
                 productionHistory.sort((a, b) => {
                     if (a.date > b.date) return -1;
                     if (a.date < b.date) return 1;
-                    return b.createdAt.seconds - a.createdAt.seconds; // assuming timestamp
+                    return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
                 });
                 
-                console.log('Histórico carregado:', productionHistory.length, 'registros');
                 updateHistoryList();
                 document.getElementById('historyLoading').classList.add('hidden');
-                
             } catch (error) {
                 console.error('Erro ao carregar histórico:', error);
                 showNotification('Erro ao carregar histórico', 'error');
@@ -2002,250 +2048,79 @@
             }
         }
         
-        // Carregar configurações do sistema
         async function loadSettings() {
             try {
                 const settingsDoc = await db.collection('settings').doc('production').get();
-                
                 if (settingsDoc.exists) {
                     systemSettings = settingsDoc.data();
-                    
-                    // Atualizar campos de configuração
                     document.getElementById('bistroTarget').value = systemSettings.bistroTarget || 50;
                     document.getElementById('alegraTarget').value = systemSettings.alegraTarget || 40;
                     document.getElementById('folhaTarget').value = systemSettings.folhaTarget || 30;
                     document.getElementById('coralTarget').value = systemSettings.coralTarget || 20;
                     document.getElementById('efficiencyGoal').value = systemSettings.efficiencyGoal || 85;
                 }
-                
             } catch (error) {
                 console.error('Erro ao carregar configurações:', error);
             }
         }
         
-        // Carregar avisos
         async function loadWarnings() {
             try {
                 const warningsDoc = await db.collection('settings').doc('warnings').get();
-                
-                if (warningsDoc.exists) {
-                    const warningsData = warningsDoc.data();
-                    const warningsText = warningsData.text || '';
-                    
-                    // Para operadores, atualizar a aba de avisos
-                    if (userRole === 'operador') {
-                        updateWarningsDisplay(warningsText);
-                    }
-                    
-                    // Para admin, preencher o textarea
-                    if (userRole === 'admin') {
-                        document.getElementById('warningsText').value = warningsText;
-                    }
+                if (warningsDoc.exists && userRole === 'admin') {
+                    document.getElementById('warningsText').value = warningsDoc.data().text || '';
                 }
-                
             } catch (error) {
                 console.error('Erro ao carregar avisos:', error);
             }
         }
         
-        // Carregar produção total por modelo e cor
-async function loadProducaoTotal() {
-    const totalList = document.getElementById('producaoTotalList');
-    const totalLoading = document.getElementById('producaoTotalLoading');
-    const individualList = document.getElementById('producaoIndividualList');
-    totalList.innerHTML = '';
-    individualList.innerHTML = '';
-    totalLoading.style.display = 'block';
-    try {
-        const snapshot = await db.collection('production').get();
-        const totalMap = {};
-        const individualMap = {};
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            if (!d.model || !d.color) return;
-            // Total por modelo e cor
-            const key = d.model + '|' + d.color;
-            totalMap[key] = (totalMap[key] || 0) + (parseInt(d.quantity) || 0);
-            // Individualizado
-            const indKey = (d.operatorName || '-') + '|' + d.model + '|' + d.color;
-            individualMap[indKey] = (individualMap[indKey] || 0) + (parseInt(d.quantity) || 0);
-        });
-        // Preencher tabela total
-        Object.entries(totalMap).forEach(([key, qtd]) => {
-            const [modelo, cor] = key.split('|');
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
-            totalList.appendChild(row);
-        });
-        // Preencher tabela individualizada
-        Object.entries(individualMap).forEach(([key, qtd]) => {
-            const [operador, modelo, cor] = key.split('|');
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>${operador}</td><td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
-            individualList.appendChild(row);
-        });
-        totalLoading.style.display = 'none';
-    } catch (error) {
-        totalList.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar produção total.</td></tr>';
-        individualList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar produção individualizada.</td></tr>';
-        totalLoading.style.display = 'none';
-    }
-}
-
-// Chamar ao trocar para a aba
-const mainTabs = document.getElementById('mainTabs');
-if (mainTabs) {
-    mainTabs.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabId = tab.getAttribute('data-tab');
-            if (tabId === 'producaoTotal') {
-                loadProducaoTotal();
-            }
-        });
-    });
-}
-        // Carregar cadeiras disponíveis para a aba Estoque
-        async function loadEstoque() {
-            const estoqueList = document.getElementById('estoqueList');
-            const estoqueLoading = document.getElementById('estoqueLoading');
-            estoqueList.innerHTML = '';
-            estoqueLoading.style.display = 'block';
+        async function loadProducaoTotal() {
+            const totalList = document.getElementById('producaoTotalList');
+            const totalLoading = document.getElementById('producaoTotalLoading');
+            const individualList = document.getElementById('producaoIndividualList');
+            totalList.innerHTML = '';
+            individualList.innerHTML = '';
+            totalLoading.style.display = 'block';
             try {
-                // Buscar todos os registros de produção não baixados
-                const snapshot = await db.collection('production')
-                    .orderBy('date', 'desc')
-                    .limit(200)
-                    .get();
-                const docs = snapshot.docs.filter(doc => !doc.data().baixa);
-                // Agrupar por modelo e cor (garantindo apenas uma linha por combinação)
-                const estoqueMap = new Map();
-                docs.forEach(doc => {
-                    const item = doc.data();
-                    const key = item.model + '|' + (item.color || '-');
-                    if (!estoqueMap.has(key)) {
-                        estoqueMap.set(key, { model: item.model, color: item.color || '-', total: 0, docIds: [] });
-                    }
-                    const entry = estoqueMap.get(key);
-                    entry.total += item.quantity || 0;
-                    entry.docIds.push(doc.id);
+                const snapshot = await db.collection('production').get();
+                const totalMap = {};
+                const individualMap = {};
+                snapshot.forEach(doc => {
+                    const d = doc.data();
+                    if (!d.model || !d.color) return;
+                    if (d.archived === true) return;
+                    if (d.tipo === 'estoque' || d.periodo === 'manual' || d.periodo === 'baixa' || d.tipo === 'ajuste_manual' || d.tipo === 'baixa_estoque') return;
+                    const quantity = (parseInt(d.quantity) || 0) - (parseInt(d.losses) || 0);
+                    if (quantity <= 0) return;
+                    const key = d.model + '|' + d.color;
+                    totalMap[key] = (totalMap[key] || 0) + quantity;
+                    const indKey = (d.operatorName || '-') + '|' + d.model + '|' + d.color;
+                    individualMap[indKey] = (individualMap[indKey] || 0) + quantity;
                 });
-                if (estoqueMap.size === 0) {
-                    estoqueList.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:24px;">Nenhuma cadeira disponível no estoque.</td></tr>';
-                    estoqueLoading.style.display = 'none';
-                    return;
-                }
-                estoqueMap.forEach(item => {
+                Object.entries(totalMap).forEach(([key, qtd]) => {
+                    const [modelo, cor] = key.split('|');
                     const row = document.createElement('tr');
-                    // Definir cor de fundo baseada na cor da cadeira
-                    let bgColor = item.color.toLowerCase();
-                    // Cores conhecidas para garantir contraste
-                    const coresConhecidas = ['preto','preta','vermelho','vermelha','azul','azul marinho','branco','branca','cinza','verde','amarelo','amarela','laranja','rosa','marrom','bege','terra cota','terracota'];
-                    if (!coresConhecidas.includes(bgColor)) {
-                        bgColor = '#f5f5f5'; // cor padrão caso não reconheça
-                    }
-                    // Ajustar nomes para cores CSS
-                    if (bgColor === 'preto' || bgColor === 'preta') bgColor = 'black';
-                    if (bgColor === 'vermelho' || bgColor === 'vermelha') bgColor = 'red';
-                    if (bgColor === 'azul marinho') bgColor = '#001f4d';
-                    if (bgColor === 'azul') bgColor = 'blue';
-                    if (bgColor === 'branco' || bgColor === 'branca') bgColor = 'white';
-                    if (bgColor === 'cinza') bgColor = 'gray';
-                    if (bgColor === 'verde') bgColor = 'green';
-                    if (bgColor === 'amarelo' || bgColor === 'amarela') bgColor = 'yellow';
-                    if (bgColor === 'laranja') bgColor = 'orange';
-                    if (bgColor === 'rosa') bgColor = 'pink';
-                    if (bgColor === 'marrom') bgColor = 'brown';
-                    if (bgColor === 'bege') bgColor = '#f5deb3';
-                    if (bgColor === 'terra cota' || bgColor === 'terracota') bgColor = '#b04a2b';
-                    // Novas cores
-                    if (bgColor === 'cinza grafite') bgColor = '#424242';
-                    if (bgColor === 'prata') bgColor = '#c0c0c0';
-                    if (bgColor === 'verde agua') bgColor = '#7fffd4';
-                    if (bgColor === 'vermelho cebola') bgColor = '#a83232';
-                    if (bgColor === 'azul bic') bgColor = '#1976d2';
-                    if (bgColor === 'azul musco') bgColor = '#274472';
-                    row.style.background = bgColor;
-                    // Letras brancas se fundo escuro, senão pretas
-                    let corLetra = 'black';
-                    if ([
-                        'black', '#424242', '#a83232', '#1976d2', '#274472', '#fd79a8', '#005a40', '#8a6300', '#2d1b8a'
-                    ].includes(bgColor)) {
-                        corLetra = 'white';
-                    }
-                    row.style.color = corLetra;
-                    row.innerHTML = `
-                        <td>${getModelName(item.model)}</td>
-                        <td><span style="padding:3px 12px;border-radius:12px;font-weight:600;background:${bgColor};color:${corLetra};display:inline-block;">${item.color}</span></td>
-                        <td>${item.total}</td>
-                        <td><button class="btn btn-danger" onclick="abrirModalBaixa('${item.model}','${item.color.replace(/'/g, '\'')}',${item.total},'${item.docIds.join(',')}')"><i class='fas fa-arrow-down'></i> Dar Baixa</button></td>
-                    `;
-                    estoqueList.appendChild(row);
+                    row.innerHTML = `<td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
+                    totalList.appendChild(row);
                 });
-                estoqueLoading.style.display = 'none';
+                Object.entries(individualMap).forEach(([key, qtd]) => {
+                    const [operador, modelo, cor] = key.split('|');
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${operador}</td><td>${getModelName(modelo)}</td><td>${cor}</td><td>${qtd}</td>`;
+                    individualList.appendChild(row);
+                });
+                totalLoading.style.display = 'none';
             } catch (error) {
-                estoqueList.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#c00;padding:24px;">Erro ao carregar estoque.</td></tr>';
-                estoqueLoading.style.display = 'none';
+                totalList.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#c00;">Erro ao carregar</td></tr>';
+                totalLoading.style.display = 'none';
             }
         }
-
-        // Função para dar baixa em um item do estoque
-        window.darBaixaEstoque = async function(id) {
-            // Não usado mais
-        }
-
-        // Modal para baixa parcial
-        window.abrirModalBaixa = function(model, color, total, docIdsStr) {
-            const quantidade = prompt(`Quantidade a dar baixa para ${getModelName(model)} - ${color} (Disponível: ${total}):`, '1');
-            const qtd = parseInt(quantidade);
-            if (!qtd || qtd <= 0 || qtd > total) {
-                showNotification('Quantidade inválida.', 'error');
-                return;
-            }
-            darBaixaParcial(model, color, qtd, docIdsStr.split(','));
-        }
-
-        // Função para dar baixa parcial
-        async function darBaixaParcial(model, color, qtd, docIds) {
-            let restante = qtd;
-            try {
-                for (let docId of docIds) {
-                    if (restante <= 0) break;
-                    const docRef = db.collection('production').doc(docId);
-                    const docSnap = await docRef.get();
-                    if (!docSnap.exists) continue;
-                    const item = docSnap.data();
-                    if (item.baixa) continue;
-                    const itemQtd = item.quantity || 0;
-                    if (itemQtd <= 0) continue;
-                    if (itemQtd <= restante) {
-                        // Dar baixa total neste registro
-                        await docRef.update({ baixa: true, baixaData: new Date().toISOString() });
-                        restante -= itemQtd;
-                    } else {
-                        // Baixa parcial: atualizar quantidade e criar novo registro baixado
-                        await docRef.update({ quantity: itemQtd - restante });
-                        await db.collection('production').add({
-                            ...item,
-                            quantity: restante,
-                            baixa: true,
-                            baixaData: new Date().toISOString(),
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        restante = 0;
-                    }
-                }
-                showNotification('Baixa realizada com sucesso!', 'success');
-                loadEstoque();
-            } catch (error) {
-                showNotification('Erro ao dar baixa.', 'error');
-            }
-        }
-
+        
         // Sistema de abas
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const tabId = tab.getAttribute('data-tab');
-                // Verificar permissão para abas de admin
                 if (tab.classList.contains('admin-tab') && userRole !== 'admin') {
                     showNotification('Apenas administradores podem acessar esta área.', 'error');
                     return;
@@ -2254,19 +2129,17 @@ if (mainTabs) {
                 if (tabId === 'estoque') {
                     loadEstoque();
                 }
+                if (tabId === 'producaoTotal') {
+                    loadProducaoTotal();
+                }
             });
         });
         
         function switchTab(tabId) {
-            // Remover classe active de todas as abas e conteúdos
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            // Adicionar classe active à aba clicada e ao conteúdo correspondente
             document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
             document.getElementById(tabId).classList.add('active');
-            
-            // Ações específicas por aba
             if (tabId === 'dashboard') {
                 updateDashboard();
             } else if (tabId === 'history') {
@@ -2278,7 +2151,7 @@ if (mainTabs) {
             }
         }
         
-        // Registrar produção
+        // MODIFICADO: Registrar produção (também atualiza a coleção estoque)
         document.getElementById('registerProduction').addEventListener('click', async () => {
             const operatorSelect = document.getElementById('operator');
             const modelSelect = document.getElementById('model');
@@ -2298,7 +2171,6 @@ if (mainTabs) {
                 return;
             }
             
-            // Encontrar o operador selecionado
             const operatorId = operatorSelect.value;
             const operator = operators.find(op => op.id === operatorId);
             
@@ -2307,12 +2179,17 @@ if (mainTabs) {
                 return;
             }
             
+            const quantidadeLiquida = parseInt(quantityInput.value) - (parseInt(lossesInput.value) || 0);
+            if (quantidadeLiquida <= 0) {
+                showNotification('Quantidade líquida (produção - perdas) deve ser maior que zero.', 'error');
+                return;
+            }
+            
             try {
-                // hora atual local
                 const now = new Date();
                 const timeString = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-                // Adicionar registro ao Firestore
+                
+                // 1. Salvar no histórico de produção
                 const newRecord = {
                     operatorId: operatorId,
                     operatorName: operator.name,
@@ -2321,7 +2198,6 @@ if (mainTabs) {
                     quantity: parseInt(quantityInput.value),
                     losses: parseInt(lossesInput.value) || 0,
                     period: periodSelect.value,
-                    // normaliza a data para evitar deslocamento de fuso
                     date: normalizeDate(dateInput.value),
                     time: timeString,
                     notes: notesInput.value,
@@ -2333,24 +2209,22 @@ if (mainTabs) {
                 
                 await db.collection('production').add(newRecord);
                 
-                // Adicionar ao array local
-                newRecord.id = 'temp-' + Date.now();
-                productionHistory.unshift(newRecord);
+                // 2. ATUALIZAR O ESTOQUE na coleção separada (SOMAR)
+                await atualizarEstoque(modelSelect.value, colorInput.value, quantidadeLiquida, 'somar');
                 
-                // Limpar o formulário
+                // Limpar formulário
                 quantityInput.value = '';
                 lossesInput.value = '';
                 notesInput.value = '';
-                modelSelect.value = '';
-                colorInput.value = '';
                 
-                // Atualizar dashboard e histórico
+                // Atualizar interfaces
                 updateDashboard();
+                loadEstoque(); // Recarregar estoque
                 if (document.getElementById('history').classList.contains('active')) {
                     updateHistoryList();
                 }
                 
-                showNotification('Produção registrada com sucesso!', 'success');
+                showNotification('Produção registrada e estoque atualizado com sucesso!', 'success');
                 
             } catch (error) {
                 console.error('Erro ao registrar produção:', error);
@@ -2358,346 +2232,178 @@ if (mainTabs) {
             }
         });
         
-        // Adicionar operador (admin only)
-        document.getElementById('addOperator').addEventListener('click', async () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem adicionar operadores.', 'error');
-                return;
-            }
+        // NOVO: Ajuste Manual de Estoque (adição ou remoção direta)
+        document.getElementById('ajusteManualEstoque').addEventListener('click', async () => {
+            const model = document.getElementById('manualModel').value;
+            const color = document.getElementById('manualColor').value;
+            const quantity = parseInt(document.getElementById('manualQuantity').value);
+            const operation = document.getElementById('manualOperation').value;
             
-            const nameInput = document.getElementById('newOperatorName');
-            const emailInput = document.getElementById('newOperatorEmail');
-            const passwordInput = document.getElementById('newOperatorPassword');
-            const idInput = document.getElementById('newOperatorId');
-            const teamSelect = document.getElementById('newOperatorTeam');
-            const statusSelect = document.getElementById('newOperatorStatus');
-            const roleSelect = document.getElementById('newOperatorRole');
-            
-            if (!nameInput.value.trim() || !idInput.value.trim() || !emailInput.value.trim() || !passwordInput.value.trim()) {
-                showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
-                return;
-            }
-            
-            if (passwordInput.value.length < 6) {
-                showNotification('A senha deve ter pelo menos 6 caracteres.', 'error');
+            if (!model || !color || !quantity || quantity <= 0) {
+                showNotification('Preencha todos os campos corretamente.', 'error');
                 return;
             }
             
             try {
-                const operatorData = {
-                    name: nameInput.value.trim(),
-                    email: emailInput.value.trim(),
-                    operatorId: idInput.value.trim(),
-                    team: teamSelect.value,
-                    status: statusSelect.value,
-                    role: roleSelect.value,
+                const operacaoTexto = operation === 'add' ? 'somar' : 'subtrair';
+                const novaQtd = await atualizarEstoque(model, color, quantity, operacaoTexto);
+                
+                // Registrar no histórico o ajuste manual
+                await db.collection('production').add({
+                    model: model,
+                    color: color,
+                    quantity: quantity,
+                    losses: 0,
+                    operatorName: userRole === 'admin' ? 'Admin (Ajuste Manual)' : 'Ajuste Manual',
+                    date: normalizeDate(new Date()),
+                    periodo: 'manual',
+                    tipo: 'ajuste_manual',
+                    operacao: operation === 'add' ? 'Adição' : 'Remoção',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     createdBy: currentUser.uid
-                };
+                });
                 
-                await db.collection('operators').add(operatorData);
-                
-                // Criar conta de autenticação
-                const email = emailInput.value.trim();
-                const password = passwordInput.value.trim();
-                try {
-                    await auth.createUserWithEmailAndPassword(email, password);
-                    await auth.signOut();
-                    showNotification('Operador adicionado e conta criada. Você foi desconectado; faça login novamente.', 'warning');
-                } catch (authError) {
-                    console.error('Erro ao criar conta:', authError);
-                    showNotification('Operador adicionado, mas erro ao criar conta de login: ' + authError.message, 'warning');
-                }
-                
-                // Atualizar lista local
-                operatorData.id = 'temp-' + Date.now();
-                operators.push(operatorData);
-                
-                // Limpar campos
-                nameInput.value = '';
-                emailInput.value = '';
-                passwordInput.value = '';
-                idInput.value = '';
-                
-                // Atualizar selects e tabela
-                updateOperatorSelects();
-                updateOperatorsTable();
-                
-                showNotification('Operador adicionado com sucesso!', 'success');
-                
+                showNotification(`Ajuste manual realizado! Novo saldo: ${novaQtd} unidades.`, 'success');
+                document.getElementById('manualQuantity').value = '';
+                loadEstoque();
+                updateDashboard();
             } catch (error) {
-                console.error('Erro ao adicionar operador:', error);
-                showNotification('Erro ao adicionar operador', 'error');
+                console.error('Erro no ajuste manual:', error);
+                showNotification('Erro ao realizar ajuste manual', 'error');
             }
         });
         
-        // Atualizar tabela de operadores
+        // MODIFICADO: Dar baixa no estoque (agora atualiza a coleção estoque)
+        document.getElementById('removeStock').addEventListener('click', async () => {
+            const model = document.getElementById('stockModel').value;
+            const color = document.getElementById('stockColor').value;
+            const quantityToRemove = parseInt(document.getElementById('stockQuantity').value);
+            
+            if (!model || !color || !quantityToRemove || quantityToRemove <= 0) {
+                showNotification('Preencha todos os campos corretamente.', 'error');
+                return;
+            }
+            
+            try {
+                // Verificar se há estoque suficiente
+                const docId = `${model}_${color}`.replace(/\s/g, '_').toLowerCase();
+                const doc = await db.collection('estoque').doc(docId).get();
+                const estoqueAtual = doc.exists ? (doc.data().quantidade || 0) : 0;
+                
+                if (estoqueAtual < quantityToRemove) {
+                    showNotification(`Estoque insuficiente! Disponível: ${estoqueAtual}`, 'error');
+                    return;
+                }
+                
+                // Atualizar estoque (subtrair)
+                await atualizarEstoque(model, color, quantityToRemove, 'subtrair');
+                
+                // Registrar a baixa no histórico
+                await db.collection('production').add({
+                    model: model,
+                    color: color,
+                    quantity: quantityToRemove,
+                    losses: 0,
+                    operatorName: userRole === 'admin' ? 'Admin (Baixa)' : 'Baixa Estoque',
+                    date: normalizeDate(new Date()),
+                    periodo: 'baixa',
+                    tipo: 'baixa_estoque',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: currentUser.uid
+                });
+                
+                showNotification(`${quantityToRemove} unidades removidas do estoque com sucesso!`, 'success');
+                loadEstoque();
+                updateDashboard();
+                document.getElementById('stockModel').value = '';
+                document.getElementById('stockColor').value = '';
+                document.getElementById('stockQuantity').value = '';
+            } catch (err) {
+                console.error('Erro ao remover estoque:', err);
+                showNotification('Erro ao remover estoque.', 'error');
+            }
+        });
+        
         function updateOperatorsTable() {
             const tbody = document.getElementById('operatorsList');
+            if (!tbody) return;
             tbody.innerHTML = '';
-            
             operators.forEach(operator => {
                 const row = document.createElement('tr');
-                
                 row.innerHTML = `
                     <td>${operator.name}</td>
                     <td>${operator.operatorId || operator.id}</td>
                     <td>${operator.email || '-'}</td>
                     <td>${operator.team || '-'}</td>
-                    <td>
-                        <span class="status-badge ${operator.status}">
-                            ${operator.status || 'ativo'}
-                        </span>
-                    </td>
+                    <td><span class="status-badge">${operator.status || 'ativo'}</span></td>
                     <td>${operator.role === 'admin' ? 'Administrador' : 'Operador'}</td>
-                    <td>
-                        <div class="action-buttons">
-                            <button class="action-btn edit-btn" onclick="editOperator('${operator.id}')">
-                                <i class="fas fa-edit"></i> Editar
-                            </button>
-                            <button class="action-btn delete-btn" onclick="deleteOperator('${operator.id}', '${operator.name}')">
-                                <i class="fas fa-trash-alt"></i> Excluir
-                            </button>
-                        </div>
-                    </td>
+                    <td><div class="action-buttons"><button class="action-btn edit-btn" onclick="editOperator('${operator.id}')">Editar</button><button class="action-btn delete-btn" onclick="deleteOperator('${operator.id}')">Excluir</button></div></td>
                 `;
-                
                 tbody.appendChild(row);
             });
-            
             document.getElementById('operatorsLoading').classList.add('hidden');
         }
         
-        // Editar operador
         window.editOperator = async function(operatorId) {
             const operator = operators.find(op => op.id === operatorId);
-            
-            if (!operator) {
-                showNotification('Operador não encontrado.', 'error');
-                return;
-            }
-            
-            // Preencher modal de edição (simplificado)
-            const newName = prompt('Novo nome do operador:', operator.name);
-            if (newName && newName.trim() !== '') {
-                try {
-                    await db.collection('operators').doc(operatorId).update({
-                        name: newName.trim()
-                    });
-                    
-                    operator.name = newName.trim();
-                    updateOperatorSelects();
-                    updateOperatorsTable();
-                    
-                    showNotification('Operador atualizado com sucesso!', 'success');
-                } catch (error) {
-                    console.error('Erro ao atualizar operador:', error);
-                    showNotification('Erro ao atualizar operador', 'error');
-                }
+            if (!operator) return;
+            const newName = prompt('Novo nome:', operator.name);
+            if (newName && newName.trim()) {
+                await db.collection('operators').doc(operatorId).update({ name: newName.trim() });
+                await loadOperators();
+                showNotification('Operador atualizado!', 'success');
             }
         };
         
-        // Excluir operador
-        window.deleteOperator = async function(operatorId, operatorName) {
-            if (!confirm(`Tem certeza que deseja excluir o operador "${operatorName}"?`)) {
-                return;
-            }
-            
-            try {
-                await db.collection('operators').doc(operatorId).delete();
-                
-                // Remover da lista local
-                operators = operators.filter(op => op.id !== operatorId);
-                
-                updateOperatorSelects();
-                updateOperatorsTable();
-                
-                showNotification('Operador excluído com sucesso!', 'success');
-            } catch (error) {
-                console.error('Erro ao excluir operador:', error);
-                showNotification('Erro ao excluir operador', 'error');
-            }
+        window.deleteOperator = async function(operatorId) {
+            if (!confirm('Excluir operador?')) return;
+            await db.collection('operators').doc(operatorId).delete();
+            await loadOperators();
+            showNotification('Operador excluído!', 'success');
         };
         
-        // Função auxiliar para obter nome do modelo
         function getModelName(model) {
-            const names = {
-                bistro: 'Cadeira Bistro',
-                alegra: 'Cadeira Alegra',
-                folha: 'Cadeira Folha',
-                coral: 'Cadeira Coral'
-            };
+            const names = { bistro: 'Cadeira Bistro', alegra: 'Cadeira Alegra', folha: 'Cadeira Folha', coral: 'Cadeira Coral' };
             return names[model] || model;
         }
         
-        // Atualizar lista de histórico
         function updateHistoryList() {
             const historyList = document.getElementById('productionHistory');
             historyList.innerHTML = '';
-            
             const filterOperator = document.getElementById('filterOperator').value;
             const filterModel = document.getElementById('filterModel').value;
             const filterDate = document.getElementById('filterDate').value;
             
-            // Filtrar registros
             let filteredRecords = productionHistory;
-            
-            if (filterOperator !== 'all') {
-                filteredRecords = filteredRecords.filter(record => record.operatorId === filterOperator);
-            }
-            
-            if (filterModel !== 'all') {
-                filteredRecords = filteredRecords.filter(record => record.model === filterModel);
-            }
-            
-            if (filterDate) {
-                filteredRecords = filteredRecords.filter(record => record.date === filterDate);
-            }
+            if (filterOperator !== 'all') filteredRecords = filteredRecords.filter(r => r.operatorId === filterOperator);
+            if (filterModel !== 'all') filteredRecords = filteredRecords.filter(r => r.model === filterModel);
+            if (filterDate) filteredRecords = filteredRecords.filter(r => r.date === filterDate);
             
             if (filteredRecords.length === 0) {
-                historyList.innerHTML = '<li class="production-item" style="text-align: center; color: #666; padding: 30px;">Nenhum registro encontrado para os filtros aplicados.</li>';
+                historyList.innerHTML = '<li style="text-align:center;padding:30px;">Nenhum registro encontrado</li>';
                 return;
             }
             
-            // Adicionar registros à lista
             filteredRecords.forEach(record => {
                 const listItem = document.createElement('li');
                 listItem.className = 'production-item';
-                listItem.dataset.id = record.id;
-                
-                const modelClass = record.model;
                 const modelName = getModelName(record.model);
-                
-                // Formatar data
-                // evitamos conversão direta para Date, que aplica fuso UTC
                 const formattedDate = formatDateString(record.date);
+                const corTexto = record.color || 'Sem cor';
                 
-                // Criar elementos de forma segura
-                const leftDiv = document.createElement('div');
-                const operatorNameDiv = document.createElement('div');
-                operatorNameDiv.style.fontWeight = '600';
-                operatorNameDiv.style.marginBottom = '5px';
-                operatorNameDiv.style.color = '#00a859';
-                operatorNameDiv.textContent = record.operatorName;
-                
-                const badgesDiv = document.createElement('div');
-                badgesDiv.style.display = 'flex';
-                badgesDiv.style.gap = '10px';
-                badgesDiv.style.marginBottom = '8px';
-                
-                const dateBadge = document.createElement('span');
-                dateBadge.className = 'date-badge';
-                dateBadge.textContent = formattedDate;
-
-                const timeBadge = document.createElement('span');
-                timeBadge.className = 'time-badge';
-                timeBadge.textContent = record.time || getRecordTime(record);
-
-                const periodBadge = document.createElement('span');
-                periodBadge.className = 'period-badge';
-                if (record.period === 'daily') {
-                    periodBadge.textContent = 'Diário';
-                } else if (record.period === 'manual' || record.tipo === 'estoque') {
-                    periodBadge.textContent = 'Estoque';
-                } else {
-                    periodBadge.textContent = 'Hora a Hora';
-                }
-
-                const colorBadge = document.createElement('span');
-                colorBadge.className = 'color-badge ' + (record.color ? record.color.replace(/\s+/g,'-') : '');
-                colorBadge.textContent = record.color || '';
-
-                badgesDiv.appendChild(dateBadge);
-                badgesDiv.appendChild(timeBadge);
-                badgesDiv.appendChild(periodBadge);
-                badgesDiv.appendChild(colorBadge);
-
-                // marcar visualmente movimentos de estoque
-                if (record.tipo === 'estoque') {
-                    const stockBadge = document.createElement('span');
-                    stockBadge.className = 'stock-badge';
-                    stockBadge.textContent = 'Estoque';
-                    badgesDiv.appendChild(stockBadge);
-                    listItem.classList.add('stock-record');
-                }
-                
-                leftDiv.appendChild(operatorNameDiv);
-                leftDiv.appendChild(badgesDiv);
-                
-                if (record.notes) {
-                    const notesDiv = document.createElement('div');
-                    notesDiv.style.fontSize = '0.9rem';
-                    notesDiv.style.color = '#666';
-                    notesDiv.style.fontStyle = 'italic';
-                    notesDiv.textContent = '"' + record.notes + '"';
-                    leftDiv.appendChild(notesDiv);
-                }
-                
-                // Botões de ação (somente para admin)
-                if (userRole === 'admin') {
-                    const actionButtons = document.createElement('div');
-                    actionButtons.className = 'action-buttons';
-                    actionButtons.style.marginTop = '10px';
-                    
-                    const editBtn = document.createElement('button');
-                    editBtn.className = 'action-btn edit-btn';
-                    editBtn.style.fontSize = '0.8rem';
-                    editBtn.onclick = () => editProductionRecord(record.id);
-                    editBtn.innerHTML = '<i class="fas fa-edit"></i> Editar';
-                    
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'action-btn delete-btn';
-                    deleteBtn.style.fontSize = '0.8rem';
-                    deleteBtn.onclick = () => deleteProductionRecord(record.id);
-                    deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Excluir';
-                    
-                    actionButtons.appendChild(editBtn);
-                    actionButtons.appendChild(deleteBtn);
-                    leftDiv.appendChild(actionButtons);
-                }
-                
-                const rightDiv = document.createElement('div');
-                rightDiv.style.textAlign = 'right';
-                
-                const modelBadge = document.createElement('div');
-                modelBadge.className = 'model-badge ' + modelClass;
-                modelBadge.textContent = modelName;
-                
-                const quantityDiv = document.createElement('div');
-                quantityDiv.style.fontSize = '1.8rem';
-                quantityDiv.style.fontWeight = '700';
-                quantityDiv.style.marginTop = '5px';
-                quantityDiv.style.color = '#00a859';
-                quantityDiv.textContent = record.quantity - (record.losses || 0);
-                
-                const unitsDiv = document.createElement('div');
-                unitsDiv.style.fontSize = '0.85rem';
-                unitsDiv.style.color = '#7f8c8d';
-                unitsDiv.textContent = 'unidades';
-                
-                rightDiv.appendChild(modelBadge);
-                rightDiv.appendChild(quantityDiv);
-                rightDiv.appendChild(unitsDiv);
-                
-                if (record.losses && record.losses > 0) {
-                    const lossesDiv = document.createElement('div');
-                    lossesDiv.style.fontSize = '0.8rem';
-                    lossesDiv.style.color = '#e74c3c';
-                    lossesDiv.textContent = `-${record.losses} perdas`;
-                    rightDiv.appendChild(lossesDiv);
-                }
-                
-                listItem.appendChild(leftDiv);
-                listItem.appendChild(rightDiv);
-                
+                listItem.innerHTML = `
+                    <div><div style="font-weight:600;color:#00a859;">${record.operatorName || 'Sistema'}</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:5px 0;"><span class="date-badge">${formattedDate}</span><span class="time-badge">${record.time || ''}</span><span class="color-badge">${corTexto}</span></div>
+                    ${record.notes ? `<div style="font-size:0.85rem;color:#666;">"${record.notes}"</div>` : ''}
+                    ${userRole === 'admin' ? `<div class="action-buttons" style="margin-top:8px;"><button class="action-btn edit-btn" onclick="editProductionRecord('${record.id}')">Editar</button><button class="action-btn delete-btn" onclick="deleteProductionRecord('${record.id}')">Excluir</button></div>` : ''}
+                    </div>
+                    <div style="text-align:right;"><div class="model-badge">${modelName}</div><div style="font-size:1.8rem;font-weight:700;color:#00a859;">${(record.quantity||0) - (record.losses||0)}</div><div>unidades</div>${record.losses ? `<div style="color:#e74c3c;">-${record.losses} perdas</div>` : ''}</div>
+                `;
                 historyList.appendChild(listItem);
             });
         }
         
-        // Aplicar filtros no histórico
         document.getElementById('applyFilters').addEventListener('click', updateHistoryList);
-        
-        // Limpar filtros
         document.getElementById('clearFilters').addEventListener('click', () => {
             document.getElementById('filterOperator').value = 'all';
             document.getElementById('filterModel').value = 'all';
@@ -2705,331 +2411,209 @@ if (mainTabs) {
             updateHistoryList();
         });
         
-        // Atualizar dashboard
         function updateDashboard() {
-            // Helper para reconhecer entradas de estoque manual – não contam como produção
-            function isStockRecord(rec) {
-                return rec.tipo === 'estoque' || rec.period === 'manual';
-            }
-
-            // Calcular produção de hoje por modelo
+            function isStockRecord(rec) { return rec.tipo === 'estoque' || rec.period === 'manual'; }
             const today = new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0');
-            
             const bistroTarget = systemSettings.bistroTarget || 50;
             const alegraTarget = systemSettings.alegraTarget || 40;
             const folhaTarget = systemSettings.folhaTarget || 30;
             const coralTarget = systemSettings.coralTarget || 20;
             
-            const totalTodayBistro = productionHistory.filter(record => record.date === today && record.model === 'bistro' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayAlegra = productionHistory.filter(record => record.date === today && record.model === 'alegra' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayFolha = productionHistory.filter(record => record.date === today && record.model === 'folha' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const totalTodayCoral = productionHistory.filter(record => record.date === today && record.model === 'coral' && !isStockRecord(record)).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
+            const totalTodayBistro = productionHistory.filter(r => r.date === today && r.model === 'bistro' && !isStockRecord(r)).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const totalTodayAlegra = productionHistory.filter(r => r.date === today && r.model === 'alegra' && !isStockRecord(r)).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const totalTodayFolha = productionHistory.filter(r => r.date === today && r.model === 'folha' && !isStockRecord(r)).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const totalTodayCoral = productionHistory.filter(r => r.date === today && r.model === 'coral' && !isStockRecord(r)).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
             
-            // Calcular produção do mês por modelo
             const currentMonth = new Date().getMonth();
             const currentYear = new Date().getFullYear();
+            const monthBistro = productionHistory.filter(r => { const d = parseDateString(r.date); return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear && r.model === 'bistro' && !isStockRecord(r); }).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const monthAlegra = productionHistory.filter(r => { const d = parseDateString(r.date); return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear && r.model === 'alegra' && !isStockRecord(r); }).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const monthFolha = productionHistory.filter(r => { const d = parseDateString(r.date); return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear && r.model === 'folha' && !isStockRecord(r); }).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            const monthCoral = productionHistory.filter(r => { const d = parseDateString(r.date); return d && d.getMonth() === currentMonth && d.getFullYear() === currentYear && r.model === 'coral' && !isStockRecord(r); }).reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
             
-            const monthBistro = productionHistory.filter(record => {
-                const recordDate = parseDateString(record.date);
-                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'bistro' && !isStockRecord(record);
-            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            
-            const monthAlegra = productionHistory.filter(record => {
-                const recordDate = parseDateString(record.date);
-                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'alegra' && !isStockRecord(record);
-            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            
-            const monthFolha = productionHistory.filter(record => {
-                const recordDate = parseDateString(record.date);
-                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'folha' && !isStockRecord(record);
-            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            
-            const monthCoral = productionHistory.filter(record => {
-                const recordDate = parseDateString(record.date);
-                return recordDate && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear && record.model === 'coral' && !isStockRecord(record);
-            }).reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            
-            // Calcular eficiência por modelo
             const efficiencyBistro = totalTodayBistro > 0 ? Math.min(Math.round((totalTodayBistro / bistroTarget) * 100), 100) : 0;
             const efficiencyAlegra = totalTodayAlegra > 0 ? Math.min(Math.round((totalTodayAlegra / alegraTarget) * 100), 100) : 0;
             const efficiencyFolha = totalTodayFolha > 0 ? Math.min(Math.round((totalTodayFolha / folhaTarget) * 100), 100) : 0;
             const efficiencyCoral = totalTodayCoral > 0 ? Math.min(Math.round((totalTodayCoral / coralTarget) * 100), 100) : 0;
             
-            // Atualizar interface
             document.getElementById('totalTodayBistro').textContent = totalTodayBistro;
             document.getElementById('monthBistro').textContent = monthBistro;
             document.getElementById('efficiencyBistro').textContent = efficiencyBistro + '% (meta: ' + bistroTarget + ')';
-            
             document.getElementById('totalTodayAlegra').textContent = totalTodayAlegra;
             document.getElementById('monthAlegra').textContent = monthAlegra;
             document.getElementById('efficiencyAlegra').textContent = efficiencyAlegra + '% (meta: ' + alegraTarget + ')';
-            
             document.getElementById('totalTodayFolha').textContent = totalTodayFolha;
             document.getElementById('monthFolha').textContent = monthFolha;
             document.getElementById('efficiencyFolha').textContent = efficiencyFolha + '% (meta: ' + folhaTarget + ')';
-            
             document.getElementById('totalTodayCoral').textContent = totalTodayCoral;
             document.getElementById('monthCoral').textContent = monthCoral;
             document.getElementById('efficiencyCoral').textContent = efficiencyCoral + '% (meta: ' + coralTarget + ')';
             
-            // Atualizar gráficos
             updateCharts();
         }
         
-        // Atualizar gráficos
         function updateCharts() {
-            // Helper: cores (ciclo)
-            const palette = ['#00a859','#6bc9a5','#ff6b6b','#4ecdc4','#ffe66d','#ff9a76','#a29bfe','#ffa69e','#7bd389'];
-
-            function colorForIndex(i) {
-                return palette[i % palette.length];
-            }
-
-            // Dados por modelo e por operador
+            const palette = ['#00a859','#6bc9a5','#ff6b6b','#4ecdc4','#ffe66d','#ff9a76','#a29bfe'];
+            function colorForIndex(i) { return palette[i % palette.length]; }
+            function isStockRecord(rec) { return rec.tipo === 'estoque' || rec.period === 'manual'; }
+            
             const modelData = { bistro:0, alegra:0, folha:0, coral:0 };
             const operatorData = {};
             const operatorDataPerModel = { bistro: {}, alegra: {}, folha: {}, coral: {} };
-
-            // ignorar movimentações de estoque manual
-            function isStockRecord(rec) { return rec.tipo === 'estoque' || rec.period === 'manual'; }
+            
             productionHistory.forEach(record => {
                 if (isStockRecord(record)) return;
                 const value = (record.quantity || 0) - (record.losses || 0);
                 if (!record.model) return;
                 modelData[record.model] = (modelData[record.model] || 0) + value;
-
                 const opKey = record.operatorName || record.operatorId || 'Desconhecido';
                 operatorData[opKey] = (operatorData[opKey] || 0) + value;
-
-                operatorDataPerModel[record.model] = operatorDataPerModel[record.model] || {};
-                operatorDataPerModel[record.model][opKey] = (operatorDataPerModel[record.model][opKey] || 0) + value;
+                if (operatorDataPerModel[record.model]) {
+                    operatorDataPerModel[record.model][opKey] = (operatorDataPerModel[record.model][opKey] || 0) + value;
+                }
             });
-
-            // --- Gráfico de Modelos ---
-            const modelLabels = ['Bistro','Alegra','Folha','Coral'];
-            const modelValues = ['bistro','alegra','folha','coral'].map(k => modelData[k] || 0);
-
+            
             const modelCtx = document.getElementById('modelChart').getContext('2d');
-            if (window.modelChart && typeof window.modelChart.destroy === 'function') window.modelChart.destroy();
-            try {
-                window.modelChart = new Chart(modelCtx, {
-                    type: 'bar',
-                    data: { labels: modelLabels, datasets: [{ label: 'Produção por Modelo', data: modelValues, backgroundColor: ['#ff6b6b','#4ecdc4','#ffe66d','#ff9a76'], borderColor: ['#ff5252','#26a69a','#ffd600','#ff8a65'], borderWidth:1 }] },
-                    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
-                });
-            } catch (e) { console.error('Erro modelChart', e); window.modelChart = null; }
-
-            // --- Gráfico geral de operadores ---
+            if (window.modelChart && typeof window.modelChart.destroy === 'function') {
+                try { window.modelChart.destroy(); } catch(e) {}
+            }
+            window.modelChart = new Chart(modelCtx, { type: 'bar', data: { labels: ['Bistro','Alegra','Folha','Coral'], datasets: [{ label: 'Produção por Modelo', data: [modelData.bistro, modelData.alegra, modelData.folha, modelData.coral], backgroundColor: ['#ff6b6b','#4ecdc4','#ffe66d','#ff9a76'] }] }, options: { responsive: true, maintainAspectRatio: false } });
+            
             const operatorLabels = Object.keys(operatorData);
             const operatorValues = Object.values(operatorData);
             const operatorCtx = document.getElementById('operatorChart').getContext('2d');
-            if (window.operatorChart && typeof window.operatorChart.destroy === 'function') window.operatorChart.destroy();
-            try {
-                window.operatorChart = new Chart(operatorCtx, {
-                    type: 'bar',
-                    data: { labels: operatorLabels, datasets: [{ label: 'Produção por Operador', data: operatorValues, backgroundColor: operatorLabels.map((_,i)=>colorForIndex(i)), borderColor: operatorLabels.map((_,i)=>colorForIndex(i)), borderWidth:1 }] },
-                    options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
-                });
-            } catch (e) { console.error('Erro operatorChart', e); window.operatorChart = null; }
-
-            // --- Gráficos por operador por modelo ---
+            if (window.operatorChart && typeof window.operatorChart.destroy === 'function') {
+                try { window.operatorChart.destroy(); } catch(e) {}
+            }
+            window.operatorChart = new Chart(operatorCtx, { type: 'bar', data: { labels: operatorLabels, datasets: [{ label: 'Produção por Operador', data: operatorValues, backgroundColor: operatorLabels.map((_,i)=>colorForIndex(i)) }] }, options: { responsive: true, maintainAspectRatio: false } });
+            
             ['bistro','alegra','folha','coral'].forEach((modelKey) => {
                 const map = operatorDataPerModel[modelKey] || {};
                 const labels = Object.keys(map);
                 const values = Object.values(map);
                 const canvasId = modelKey + 'OperatorChart';
                 const ctx = document.getElementById(canvasId).getContext('2d');
-
                 const varName = modelKey + 'OperatorChart';
-                if (window[varName] && typeof window[varName].destroy === 'function') window[varName].destroy();
-
-                // Se não houver dados, mostrar um gráfico vazio com label informativo
-                const chartLabels = labels.length ? labels : ['Nenhum dado'];
-                const chartValues = values.length ? values : [0];
-
-                try {
-                    window[varName] = new Chart(ctx, {
-                        type: 'bar',
-                        data: { labels: chartLabels, datasets: [{ label: 'Produção - ' + getModelName(modelKey), data: chartValues, backgroundColor: chartLabels.map((_,i)=>colorForIndex(i)), borderColor: chartLabels.map((_,i)=>colorForIndex(i)), borderWidth:1 }] },
-                        options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ callback: v => v + ' unidades' } } } }
-                    });
-                } catch (e) { console.error('Erro em ' + canvasId, e); window[varName] = null; }
+                if (window[varName] && typeof window[varName].destroy === 'function') {
+                    try { window[varName].destroy(); } catch(e) {}
+                }
+                window[varName] = new Chart(ctx, { type: 'bar', data: { labels: labels.length ? labels : ['Sem dados'], datasets: [{ label: 'Produção - ' + getModelName(modelKey), data: values.length ? values : [0], backgroundColor: labels.map((_,i)=>colorForIndex(i)) }] }, options: { responsive: true, maintainAspectRatio: false } });
             });
         }
         
-        // Atualizar exibição de avisos para operadores
-        function updateWarningsDisplay(warningsText) {
-            const warningsCard = document.querySelector('#warnings .card');
-            // Limpar conteúdo atual
-            warningsCard.innerHTML = '';
-            const intro = document.createElement('p');
-            intro.textContent = 'Aqui você encontrará comunicados importantes da liderança sobre metas, procedimentos e atualizações.';
-            warningsCard.appendChild(intro);
+        document.getElementById('addOperator').addEventListener('click', async () => {
+            if (userRole !== 'admin') { showNotification('Apenas administradores podem adicionar operadores.', 'error'); return; }
+            const name = document.getElementById('newOperatorName').value.trim();
+            const email = document.getElementById('newOperatorEmail').value.trim();
+            const password = document.getElementById('newOperatorPassword').value.trim();
+            const operatorId = document.getElementById('newOperatorId').value.trim();
+            const team = document.getElementById('newOperatorTeam').value;
+            const status = document.getElementById('newOperatorStatus').value;
+            const role = document.getElementById('newOperatorRole').value;
+            
+            if (!name || !email || !password || !operatorId) { showNotification('Preencha todos os campos.', 'error'); return; }
+            if (password.length < 6) { showNotification('Senha deve ter 6+ caracteres.', 'error'); return; }
+            
+            try {
+                await db.collection('operators').add({ name, email, operatorId, team, status, role, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-            if (warningsText) {
-                const lines = warningsText.split('\n').filter(line => line.trim());
-                const ul = document.createElement('ul');
-                ul.style.marginTop = '20px';
-                lines.forEach(line => {
-                    const li = document.createElement('li');
-                    li.textContent = line.trim();
-                    ul.appendChild(li);
-                });
-                warningsCard.appendChild(ul);
-            } else {
-                const none = document.createElement('p');
-                none.style.color = '#666';
-                none.textContent = 'Nenhum aviso disponível no momento.';
-                warningsCard.appendChild(none);
+                const adminEmail = currentUser?.email;
+                const adminPassword = currentUserPassword;
+                let notificationType = 'success';
+                let notificationText = 'Operador adicionado com sucesso!';
+
+                if (adminEmail && adminPassword) {
+                    try {
+                        await auth.createUserWithEmailAndPassword(email, password);
+                        await auth.signInWithEmailAndPassword(adminEmail, adminPassword);
+                        currentUser = auth.currentUser;
+                        notificationText = 'Operador adicionado e conta criada com sucesso!';
+                    } catch (authError) {
+                        console.error('Erro ao criar conta:', authError);
+                        notificationText = 'Operador cadastrado, mas houve erro ao criar o login: ' + authError.message;
+                        notificationType = 'warning';
+                    }
+                } else {
+                    notificationText = 'Operador cadastrado, mas não foi possível criar o login automaticamente.';
+                    notificationType = 'warning';
+                }
+
+                showNotification(notificationText, notificationType);
+                document.getElementById('newOperatorName').value = '';
+                document.getElementById('newOperatorEmail').value = '';
+                document.getElementById('newOperatorPassword').value = '';
+                document.getElementById('newOperatorId').value = '';
+                await loadOperators();
+            } catch(e) {
+                showNotification('Erro: ' + e.message, 'error');
             }
-        }
-
-        // Escapa strings para uso seguro em HTML
-        function escapeHtml(str) {
-            return String(str).replace(/[&<>"'`=\/]/g, function(s) {
-                return ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;',
-                    '/': '&#x2F;',
-                    '`': '&#x60;',
-                    '=': '&#x3D;'
-                })[s];
-            });
-        }
+        });
         
-        function getErrorMessage(errorCode) {
-            const errors = {
-                'auth/invalid-email': 'E-mail inválido.',
-                'auth/user-disabled': 'Esta conta foi desativada.',
-                'auth/user-not-found': 'Usuário não encontrado.',
-                'auth/wrong-password': 'Senha incorreta.',
-                'auth/too-many-requests': 'Muitas tentativas de login. Tente novamente mais tarde.'
+        document.getElementById('saveSettings').addEventListener('click', async () => {
+            if (userRole !== 'admin') return;
+            const settings = {
+                bistroTarget: parseInt(document.getElementById('bistroTarget').value) || 50,
+                alegraTarget: parseInt(document.getElementById('alegraTarget').value) || 40,
+                folhaTarget: parseInt(document.getElementById('folhaTarget').value) || 30,
+                coralTarget: parseInt(document.getElementById('coralTarget').value) || 20,
+                efficiencyGoal: parseInt(document.getElementById('efficiencyGoal').value) || 85,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            return errors[errorCode] || 'Erro ao fazer login. Tente novamente.';
-        }
+            await db.collection('settings').doc('production').set(settings, { merge: true });
+            systemSettings = settings;
+            showNotification('Configurações salvas!', 'success');
+            updateDashboard();
+        });
         
-        function showNotification(message, type) {
-            // Criar notificação temporária
-            const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 20px;
-                background-color: ${type === 'success' ? '#00a859' : '#dc3545'};
-                color: white;
-                border-radius: 6px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                z-index: 1000;
-                font-weight: 600;
-                animation: slideIn 0.3s ease;
-            `;
-            // Ícone
-            const icon = document.createElement('i');
-            icon.className = `fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}`;
-            icon.style.marginRight = '8px';
-            notification.appendChild(icon);
-
-            // Texto (usar text node para evitar injeção)
-            notification.appendChild(document.createTextNode(String(message)));
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => {
-                    document.body.removeChild(notification);
-                }, 300);
-            }, 3000);
-            
-            // Adicionar estilos de animação se não existirem
-            if (!document.getElementById('notification-styles')) {
-                const style = document.createElement('style');
-                style.id = 'notification-styles';
-                style.textContent = `
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-                    @keyframes slideOut {
-                        from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        }
+        document.getElementById('saveWarnings').addEventListener('click', async () => {
+            if (userRole !== 'admin') return;
+            const text = document.getElementById('warningsText').value;
+            await db.collection('settings').doc('warnings').set({ text, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            showNotification('Avisos salvos!', 'success');
+        });
         
-        // Funções de administração
+        document.getElementById('resetMonthlyData').addEventListener('click', async () => {
+            if (userRole !== 'admin') return;
+            if (!confirm('Arquivar dados do mês anterior?')) return;
+            const now = new Date();
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const lastMonthStr = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0');
+            const snapshot = await db.collection('production').where('month', '==', lastMonthStr).get();
+            const batch = db.batch();
+            snapshot.forEach(doc => batch.update(db.collection('production').doc(doc.id), { archived: true, archivedAt: firebase.firestore.FieldValue.serverTimestamp() }));
+            await batch.commit();
+            showNotification(`${snapshot.size} registros arquivados.`, 'success');
+            await loadProductionHistory();
+        });
+        
         window.editProductionRecord = async function(recordId) {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem editar registros.', 'error');
-                return;
-            }
-            
             const record = productionHistory.find(r => r.id === recordId);
-            if (!record) {
-                showNotification('Registro não encontrado.', 'error');
-                return;
-            }
-            
-            // Preencher formulário de edição
+            if (!record) return;
             document.getElementById('editProductionId').value = recordId;
-            document.getElementById('editOperator').value = record.operatorId;
-            document.getElementById('editModel').value = record.model;
-            document.getElementById('editQuantity').value = record.quantity;
+            document.getElementById('editOperator').value = record.operatorId || '';
+            document.getElementById('editModel').value = record.model || '';
+            document.getElementById('editQuantity').value = record.quantity || '';
             document.getElementById('editLosses').value = record.losses || 0;
-            document.getElementById('editDate').value = record.date;
+            document.getElementById('editDate').value = record.date || '';
             document.getElementById('editColor').value = record.color || '';
-            document.getElementById('editTime').value = record.time || getRecordTime(record);
+            document.getElementById('editTime').value = record.time || '';
             document.getElementById('editNotes').value = record.notes || '';
-            
-            // Mostrar formulário
             document.getElementById('editProductionForm').classList.remove('hidden');
-            
-            // Ir para aba de administração
             switchTab('admin');
         };
         
         window.deleteProductionRecord = async function(recordId) {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem excluir registros.', 'error');
-                return;
-            }
-            
-            if (!confirm('Tem certeza que deseja excluir este registro de produção?')) {
-                return;
-            }
-            
-            try {
-                await db.collection('production').doc(recordId).delete();
-                
-                // Remover da lista local
-                productionHistory = productionHistory.filter(r => r.id !== recordId);
-                
-                // Atualizar interface
-                updateHistoryList();
-                updateDashboard();
-                
-                showNotification('Registro excluído com sucesso!', 'success');
-            } catch (error) {
-                console.error('Erro ao excluir registro:', error);
-                showNotification('Erro ao excluir registro', 'error');
-            }
+            if (!confirm('Excluir este registro?')) return;
+            await db.collection('production').doc(recordId).delete();
+            productionHistory = productionHistory.filter(r => r.id !== recordId);
+            updateHistoryList();
+            updateDashboard();
+            showNotification('Registro excluído!', 'success');
         };
         
-        // Atualizar registro de produção
         document.getElementById('updateProduction').addEventListener('click', async () => {
             const recordId = document.getElementById('editProductionId').value;
-            
-            if (!recordId) {
-                showNotification('Nenhum registro selecionado para edição.', 'error');
-                return;
-            }
-            
+            if (!recordId) return;
             const operatorId = document.getElementById('editOperator').value;
             const model = document.getElementById('editModel').value;
             const quantity = parseInt(document.getElementById('editQuantity').value);
@@ -3038,707 +2622,108 @@ if (mainTabs) {
             const color = document.getElementById('editColor').value;
             const time = document.getElementById('editTime').value;
             const notes = document.getElementById('editNotes').value;
+            const operator = operators.find(op => op.id === operatorId);
             
-            if (!operatorId || !model || !quantity || !date) {
-                showNotification('Por favor, preencha todos os campos obrigatórios.', 'error');
-                return;
-            }
-            if (!color) {
-                showNotification('Por favor, informe a cor da cadeira.', 'error');
-                return;
-            }
-            
-            try {
-                // Encontrar o operador
-                const operator = operators.find(op => op.id === operatorId);
-                
-                const updateData = {
-                    operatorId: operatorId,
-                    operatorName: operator ? operator.name : 'Operador Desconhecido',
-                    model: model,
-                    quantity: quantity,
-                    date: date,
-                    losses: losses,
-                    notes: notes,
-                    color: color,
-                    time: time,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                };
-                
-                await db.collection('production').doc(recordId).update(updateData);
-                
-                // Atualizar no array local
-                const recordIndex = productionHistory.findIndex(r => r.id === recordId);
-                if (recordIndex !== -1) {
-                    productionHistory[recordIndex] = {
-                        ...productionHistory[recordIndex],
-                        ...updateData
-                    };
-                }
-                
-                // Atualizar interface
-                updateHistoryList();
-                updateDashboard();
-                
-                // Limpar formulário
-                document.getElementById('editProductionForm').classList.add('hidden');
-                document.getElementById('editProductionId').value = '';
-                
-                showNotification('Registro atualizado com sucesso!', 'success');
-                
-            } catch (error) {
-                console.error('Erro ao atualizar registro:', error);
-                showNotification('Erro ao atualizar registro', 'error');
-            }
+            await db.collection('production').doc(recordId).update({
+                operatorId, operatorName: operator?.name || 'Operador', model, quantity, losses, date, color, time, notes,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await loadProductionHistory();
+            updateDashboard();
+            document.getElementById('editProductionForm').classList.add('hidden');
+            showNotification('Registro atualizado!', 'success');
         });
         
-        // Salvar configurações
-        document.getElementById('saveSettings').addEventListener('click', async () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem alterar configurações.', 'error');
-                return;
-            }
-            
-            try {
-                               const settings = {
-                    bistroTarget: parseInt(document.getElementById('bistroTarget').value) || 50,
-                    alegraTarget: parseInt(document.getElementById('alegraTarget').value) || 40,
-                    folhaTarget: parseInt(document.getElementById('folhaTarget').value) || 30,
-                    coralTarget: parseInt(document.getElementById('coralTarget').value) || 20,
-                    efficiencyGoal: parseInt(document.getElementById('efficiencyGoal').value) || 85,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                };
-                
-                await db.collection('settings').doc('production').set(settings, { merge: true });
-                
-                systemSettings = settings;
-                
-                showNotification('Configurações salvas com sucesso!', 'success');
-                updateDashboard();
-                
-            } catch (error) {
-                console.error('Erro ao salvar configurações:', error);
-                showNotification('Erro ao salvar configurações', 'error');
-            }
+        document.getElementById('searchProduction').addEventListener('click', () => {
+            const recordId = document.getElementById('editProductionId').value.trim();
+            const record = productionHistory.find(r => r.id === recordId);
+            if (!record) { showNotification('Registro não encontrado.', 'error'); return; }
+            document.getElementById('editOperator').value = record.operatorId || '';
+            document.getElementById('editModel').value = record.model || '';
+            document.getElementById('editQuantity').value = record.quantity || '';
+            document.getElementById('editLosses').value = record.losses || 0;
+            document.getElementById('editDate').value = record.date || '';
+            document.getElementById('editColor').value = record.color || '';
+            document.getElementById('editTime').value = record.time || '';
+            document.getElementById('editNotes').value = record.notes || '';
+            document.getElementById('editProductionForm').classList.remove('hidden');
+            showNotification('Registro encontrado!', 'success');
         });
         
-        // Salvar avisos
-        document.getElementById('saveWarnings').addEventListener('click', async () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem alterar avisos.', 'error');
-                return;
-            }
-            
-            try {
-                const warningsText = document.getElementById('warningsText').value.trim();
-                
-                await db.collection('settings').doc('warnings').set({
-                    text: warningsText,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                }, { merge: true });
-                
-                showNotification('Avisos salvos com sucesso!', 'success');
-                
-            } catch (error) {
-                console.error('Erro ao salvar avisos:', error);
-                showNotification('Erro ao salvar avisos', 'error');
-            }
-        });
-        
-        // Reset mensal
-        document.getElementById('resetMonthlyData').addEventListener('click', async () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem resetar dados.', 'error');
-                return;
-            }
-            
-            if (!confirm('Tem certeza que deseja arquivar dados do mês anterior? Esta ação não pode ser desfeita!')) {
-                return;
-            }
-            
-            try {
-                const now = new Date();
-                const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                const lastMonthStr = lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0');
-                
-                // Buscar e arquivar todos os registros do mês anterior
-                const snapshot = await db.collection('production')
-                    .where('month', '==', lastMonthStr)
-                    .get();
-                
-                if (snapshot.empty) {
-                    showNotification('Nenhum registro encontrado para o mês anterior.', 'info');
-                    return;
-                }
-                
-                const batch = db.batch();
-                snapshot.forEach(doc => {
-                    batch.update(db.collection('production').doc(doc.id), {
-                        archived: true,
-                        archivedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        archivedBy: currentUser.uid
-                    });
-                });
-                await batch.commit();
-                
-                showNotification(snapshot.size + ' registros do mês anterior foram arquivados com sucesso!', 'success');
-                localStorage.setItem('lastResetMonth', currentMonth);
-                await loadProductionHistory();
-                
-            } catch (error) {
-                console.error('Erro ao resetar dados:', error);
-                showNotification('Erro ao resetar dados mensais', 'error');
-            }
-        });
-        
-        // Gerar relatório
         document.getElementById('generateReport').addEventListener('click', async () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem gerar relatórios.', 'error');
+            const reportType = document.getElementById('reportType').value;
+            if (reportType === 'estoque') {
+                const snapshot = await db.collection('estoque').get();
+                let html = '<h3>Relatório de Estoque Atual</h3><table class="admin-table"><thead><tr><th>Modelo</th><th>Cor</th><th>Quantidade</th></tr></thead><tbody>';
+                snapshot.forEach(doc => {
+                    const item = doc.data();
+                    html += `<tr><td>${getModelName(item.modelo)}</td><td>${item.cor}</td><td>${item.quantidade}</td></tr>`;
+                });
+                html += '</tbody></table>';
+                document.getElementById('reportResult').innerHTML = html;
+                showNotification('Relatório de estoque gerado!', 'success');
                 return;
             }
-
-            const reportType = document.getElementById('reportType').value;
+            
             const startDate = document.getElementById('reportStartDate').value;
             const endDate = document.getElementById('reportEndDate').value;
             const operatorId = document.getElementById('reportOperator').value;
             const model = document.getElementById('reportModel').value;
-
-            if (reportType === 'estoque') {
-                // Relatório de estoque atual
-                // Considera todos os registros não baixados (estoque manual e produção)
-                const estoqueAtual = productionHistory.filter(record => !record.baixa);
-                // Agrupa por modelo/cor
-                const estoqueMap = {};
-                estoqueAtual.forEach(record => {
-                    const key = record.model + '-' + record.color;
-                    if (!estoqueMap[key]) {
-                        estoqueMap[key] = { model: record.model, color: record.color, total: 0 };
-                    }
-                    estoqueMap[key].total += record.quantity;
-                });
-                let reportHTML = '<h3>Relatório de Estoque Atual</h3>';
-                reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Cor</th><th>Quantidade</th></tr></thead><tbody>';
-                Object.values(estoqueMap).forEach(item => {
-                    reportHTML += `<tr><td>${escapeHtml(getModelName(item.model))}</td><td>${escapeHtml(item.color)}</td><td>${escapeHtml(item.total)}</td></tr>`;
-                });
-                reportHTML += '</tbody></table>';
-                document.getElementById('reportResult').innerHTML = reportHTML;
-                showNotification('Relatório de estoque gerado com sucesso!', 'success');
-                return;
-            }
-
-            // ...relatório de produção normal...
-            let filteredData = productionHistory.filter(record => record.tipo !== 'estoque' && record.archived !== true);
-
-            if (operatorId !== 'all') {
-                filteredData = filteredData.filter(record => record.operatorId === operatorId);
-            }
-
-            if (model !== 'all') {
-                filteredData = filteredData.filter(record => record.model === model);
-            }
-
-            // use our parsing helper to avoid timezone shifts
-            const end = parseDateString(endDate);
+            
+            let filtered = productionHistory.filter(r => r.tipo !== 'estoque' && r.archived !== true);
+            if (operatorId !== 'all') filtered = filtered.filter(r => r.operatorId === operatorId);
+            if (model !== 'all') filtered = filtered.filter(r => r.model === model);
             const start = parseDateString(startDate);
-
-            filteredData = filteredData.filter(record => {
-                const recordDate = parseDateString(record.date);
-                return recordDate && recordDate >= start && recordDate <= end;
-            });
-
-            const totalProduction = filteredData.reduce((sum, record) => sum + (record.quantity - (record.losses || 0)), 0);
-            const avgDailyProduction = filteredData.length > 0 ? 
-                totalProduction / filteredData.length : 0;
-
-            const operatorStats = {};
-            filteredData.forEach(record => {
-                const opId = record.operatorId || 'unknown';
-                const opName = record.operatorName || 'Desconhecido';
-                if (!operatorStats[opId]) {
-                    operatorStats[opId] = {
-                        name: opName,
-                        total: 0,
-                        count: 0
-                    };
-                }
-                operatorStats[opId].total += (record.quantity - (record.losses || 0));
-                operatorStats[opId].count++;
-            });
-
-            const modelStats = {};
-            filteredData.forEach(record => {
-                if (!record.model) return; // pular casos inválidos
-                modelStats[record.model] = (modelStats[record.model] || 0) + (record.quantity - (record.losses || 0));
-            });
-
-            // estrutura auxiliar de produção por modelo/operador
-            const modelOperatorData = { bistro:{}, alegra:{}, folha:{}, coral:{} };
-            filteredData.forEach(rec => {
-                if (!rec.model) return;
-                const op = rec.operatorName || rec.operatorId || 'Desconhecido';
-                const val = (rec.quantity || 0) - (rec.losses || 0);
-                if (modelOperatorData[rec.model]) {
-                    modelOperatorData[rec.model][op] = (modelOperatorData[rec.model][op] || 0) + val;
-                }
-            });
-
-            // cálculo de eficiência por operador relativo à meta diária
-            const diffTime = end.getTime() - start.getTime();
-            const daysCount = Math.floor(diffTime / (1000*60*60*24)) + 1;
-            const operatorModelTotals = {};
-            filteredData.forEach(rec => {
-                const opId = rec.operatorId || 'unknown';
-                operatorModelTotals[opId] = operatorModelTotals[opId] || {bistro:0,alegra:0,folha:0,coral:0};
-                if (rec.model && operatorModelTotals[opId][rec.model] !== undefined) {
-                    operatorModelTotals[opId][rec.model] += (rec.quantity || 0) - (rec.losses || 0);
-                }
-            });
-            const modelsToConsider = model !== 'all' ? [model] : ['bistro','alegra','folha','coral'];
-            const opEfficiency = {};
-            Object.entries(operatorModelTotals).forEach(([opId, totals]) => {
-                let sumPercent = 0, countModels = 0;
-                modelsToConsider.forEach(m => {
-                    const target = systemSettings[m + 'Target'] || 0;
-                    if (target > 0) {
-                        const expected = target * daysCount;
-                        const actual = totals[m] || 0;
-                        const pct = expected ? Math.min((actual / expected) * 100, 200) : 0;
-                        sumPercent += pct;
-                        countModels++;
-                    }
-                });
-                opEfficiency[opId] = countModels ? (sumPercent / countModels) : 0;
-            });
-
-            let reportHTML = '';
-            reportHTML += '<h3>Relatório de Produção</h3>';
-            reportHTML += '<p><strong>Período:</strong> ' + escapeHtml(startDate) + ' a ' + escapeHtml(endDate) + '</p>';
-            reportHTML += '<p><strong>Total de registros:</strong> ' + escapeHtml(filteredData.length) + '</p>';
-            reportHTML += '<p><strong>Produção total:</strong> ' + escapeHtml(totalProduction) + ' unidades</p>';
-            reportHTML += '<p><strong>Média diária:</strong> ' + escapeHtml(avgDailyProduction.toFixed(2)) + ' unidades</p>';
-
-            reportHTML += '<h4 style="margin-top: 20px;">Produção por Operador</h4>';
-            reportHTML += '<table class="admin-table"><thead><tr><th>Operador</th><th>Produção Total</th><th>Registros</th><th>Média por Registro</th></tr></thead><tbody>' +
-
-            Object.values(operatorStats).forEach(stat => {
-                reportHTML += '<tr>' +
-                    '<td>' + escapeHtml(stat.name || 'Desconhecido') + '</td>' +
-                    '<td>' + escapeHtml(stat.total) + ' unidades</td>' +
-                    '<td>' + escapeHtml(stat.count) + '</td>' +
-                    '<td>' + escapeHtml((stat.total / stat.count).toFixed(2)) + ' unidades</td>' +
-                '</tr>';
-            });
-
-            reportHTML += '</tbody></table>';
-
-            reportHTML += '<h4 style="margin-top: 20px;">Produção por Modelo</h4>';
-            reportHTML += '<table class="admin-table"><thead><tr><th>Modelo</th><th>Produção Total</th><th>Percentual</th></tr></thead><tbody>' +
-
-            Object.entries(modelStats).forEach(([model, total]) => {
-                const percentage = total > 0 ? ((total / totalProduction) * 100).toFixed(1) : 0;
-                reportHTML += '<tr>' +
-                    '<td>' + escapeHtml(getModelName(model)) + '</td>' +
-                    '<td>' + escapeHtml(total) + ' unidades</td>' +
-                    '<td>' + escapeHtml(percentage) + '%</td>' +
-                '</tr>';
-            });
-
-            reportHTML += '</tbody></table>';
-
-            // inserir contêineres de gráfico com explicações
-            reportHTML += '<h4 style="margin-top: 30px;">Gráfico: Eficiência por Operador</h4>';
-            reportHTML += '<div class="chart-section">';
-            reportHTML += '<div><div class="chart-container"><canvas id="efficiencyChart"></canvas></div></div>';
-            reportHTML += '<div class="chart-explanation">';
-            reportHTML += '<h5>📊 Como é Calculado</h5>';
-            reportHTML += '<p><strong>Fórmula:</strong></p>';
-            reportHTML += '<ul>';
-            reportHTML += '<li>Para cada modelo: (Produção Real ÷ Meta Esperada) × 100%</li>';
-            reportHTML += '<li>Meta Esperada = Meta Diária × Número de Dias no Período</li>';
-            reportHTML += '<li>Eficiência Final = Média entre todos os modelos</li>';
-            reportHTML += '</ul>';
-            reportHTML += '<p><strong>Interpretação:</strong></p>';
-            reportHTML += '<ul>';
-            reportHTML += '<li><strong>100%</strong> = Atingiu a meta (linha vermelha)</li>';
-            reportHTML += '<li><strong>&gt;100%</strong> = Superou a meta</li>';
-            reportHTML += '<li><strong>&lt;100%</strong> = Abaixo da meta</li>';
-            reportHTML += '<li><strong>🏆 Ouro</strong> = Operador com melhor desempenho</li>';
-            reportHTML += '</ul>';
-            reportHTML += '</div>';
-            reportHTML += '</div>';
+            const end = parseDateString(endDate);
+            filtered = filtered.filter(r => { const d = parseDateString(r.date); return d && d >= start && d <= end; });
             
-            ['bistro','alegra','folha','coral'].forEach(m => {
-                reportHTML += '<h4 style="margin-top: 30px;">Produção por Operador - ' + getModelName(m) + '</h4>';
-                reportHTML += '<div class="chart-section">';
-                reportHTML += '<div><div class="chart-container"><canvas id="modelOperators_' + m + '"></canvas></div></div>';
-                reportHTML += '<div class="chart-explanation">';
-                reportHTML += '<h5>📊 Como é Calculado</h5>';
-                reportHTML += '<p><strong>O que mostra:</strong></p>';
-                reportHTML += '<ul>';
-                reportHTML += '<li>Total de unidades produzidas por cada operador</li>';
-                reportHTML += '<li>Apenas para o modelo <strong>' + getModelName(m) + '</strong></li>';
-                reportHTML += '<li>No período selecionado</li>';
-                reportHTML += '</ul>';
-                reportHTML += '<p><strong>Cálculo:</strong></p>';
-                reportHTML += '<ul>';
-                reportHTML += '<li>Soma de (Quantidade - Perdas) por operador</li>';
-                reportHTML += '<li>Filtrado apenas para este modelo</li>';
-                reportHTML += '</ul>';
-                reportHTML += '</div>';
-                reportHTML += '</div>';
-            });
-
-            document.getElementById('reportResult').innerHTML = reportHTML;
-
-            // criar gráficos após o DOM ser atualizado (ajuda quando a aba estava oculta)
-            requestAnimationFrame(() => {
-                // agora gerar os gráficos
-                function createChart(canvasId, labels, dataValues, labelText, valueSuffix = '', chartType = 'bar', customColors = null, targetValue = null) {
-                    try {
-                        const el = document.getElementById(canvasId);
-                        if (!el) return;
-                        // destroy existing chart instance if present
-                        if (window[canvasId] && typeof window[canvasId].destroy === 'function') {
-                            window[canvasId].destroy();
-                        }
-                        const ctx = el.getContext('2d');
-                        const palette = ['#00a859','#6bc9a5','#ff6b6b','#4ecdc4','#ffe66d','#ff9a76','#a29bfe','#ffa69e','#7bd389'];
-                        const colors = customColors || labels.map((_, i) => palette[i % palette.length]);
-                        
-                        // datasets: sempre um para os dados principais
-                        const datasets = [
-                            { label: labelText, data: dataValues, backgroundColor: colors, borderColor: colors, borderWidth: 1, fill: false }
-                        ];
-                        
-                        // se houver targetValue, adicionar linha de meta
-                        if (targetValue !== null) {
-                            datasets.push({
-                                label: 'Meta (100%)',
-                                data: labels.map(() => targetValue),
-                                borderColor: '#ff6b6b',
-                                borderWidth: 2,
-                                borderDash: [5, 5],
-                                fill: false,
-                                pointRadius: 0,
-                                tension: 0
-                            });
-                        }
-                        
-                        window[canvasId] = new Chart(ctx, {
-                            type: chartType,
-                            data: { labels: labels, datasets: datasets },
-                            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { callback: v => v + valueSuffix } } } }
-                        });
-                    } catch (e) {
-                        console.error('Erro ao criar gráfico', canvasId, e);
-                    }
-                }
-
-                // eficiência relativa agora usa opEfficiency e destaca o melhor
-            const effLabels = [];
-            const effData = [];
-            const effColors = [];
-            Object.entries(opEfficiency).forEach(([opId, pct]) => {
-                effLabels.push(operatorStats[opId] ? operatorStats[opId].name : opId);
-                effData.push(pct);
-                effColors.push('#00a859');
-            });
-            const bestIdx = effData.indexOf(Math.max(...effData));
-            if (bestIdx !== -1) effColors[bestIdx] = '#ffcf00';
-            createChart('efficiencyChart', effLabels, effData, 'Eficiência sobre meta (%)', '%', 'line', effColors, 100);
-
-                // gráficos por modelo ainda por operador (mesmo funcionamento)
-                ['bistro','alegra','folha','coral'].forEach(m => {
-                    const map = modelOperatorData[m] || {};
-                    const labels = Object.keys(map);
-                    const dataVals = labels.map(l => map[l]);
-                    if (labels.length) {
-                        createChart('modelOperators_' + m, labels, dataVals, 'Produção - ' + getModelName(m), '', 'line');
-                    }
-                });
-            });
-
-            showNotification('Relatório gerado com sucesso!', 'success');
+            const total = filtered.reduce((s, r) => s + (r.quantity - (r.losses || 0)), 0);
+            let html = `<h3>Relatório de Produção</h3><p>Período: ${startDate} a ${endDate}</p><p>Total: ${total} unidades</p><table class="admin-table"><thead><tr><th>Data</th><th>Operador</th><th>Modelo</th><th>Cor</th><th>Quant. Líq</th></tr></thead><tbody>`;
+            filtered.forEach(r => html += `<tr><td>${r.date}</td><td>${r.operatorName || '-'}</td><td>${getModelName(r.model)}</td><td>${r.color || '-'}</td><td>${(r.quantity||0)-(r.losses||0)}</td></tr>`);
+            html += '</tbody></table>';
+            document.getElementById('reportResult').innerHTML = html;
+            showNotification('Relatório gerado!', 'success');
         });
         
-        // Exportar relatório para Excel (simulação)
-        document.getElementById('exportReport').addEventListener('click', () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem exportar relatórios.', 'error');
-                return;
-            }
-            
-            showNotification('Funcionalidade de exportação em desenvolvimento.', 'info');
-        });
-
-        // Visualizar relatório em nova aba
+        document.getElementById('exportReport').addEventListener('click', () => showNotification('Exportação em desenvolvimento.', 'info'));
         document.getElementById('printReport').addEventListener('click', () => {
-            if (userRole !== 'admin') {
-                showNotification('Apenas administradores podem visualizar relatórios.', 'error');
-                return;
-            }
-
-            const resultEl = document.getElementById('reportResult');
-            const content = resultEl.innerHTML.trim();
-
-            if (!content) {
-                showNotification('Nenhum relatório disponível para visualização.', 'error');
-                return;
-            }
-
+            const content = document.getElementById('reportResult').innerHTML;
+            if (!content) return;
             const win = window.open('', '_blank');
-            if (!win) {
-                showNotification('Não foi possível abrir nova aba. Verifique o bloqueador de pop-ups.', 'error');
-                return;
-            }
-
-            const doc = win.document;
-            doc.open();
-            doc.write(`<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Visualizar Relatório</title><meta name="viewport" content="width=device-width,initial-scale=1">
-                <style>
-                    body{font-family:sans-serif;padding:20px;color:#333}
-                    .admin-table{width:100%;border-collapse:collapse;margin-top:10px}
-                    .admin-table th{background:#f8f9fa;padding:12px 15px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e9ecef}
-                    .admin-table td{padding:12px 15px;border-bottom:1px solid #e9ecef}
-                    h3,h4{color:#00a859}
-                    .view-toolbar{display:flex;gap:10px;margin-bottom:20px}
-                    .view-toolbar button{background:#00a859;color:#fff;border:none;padding:10px 14px;border-radius:6px;cursor:pointer;font-weight:600}
-                    .view-toolbar button.secondary{background:#6c757d}
-                </style>
-            </head><body>` +
-                '<div class="view-toolbar">' +
-                    '<button onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>' +
-                    '<button class="secondary" onclick="window.close()">Fechar</button>' +
-                '</div>' +
-                content + '</body></html>');
-            doc.close();
+            win.document.write(`<html><head><title>Relatório</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}th{background:#f0f0f0}</style></head><body>${content}</body></html>`);
+            win.document.close();
         });
         
-        // Buscar registro para edição
-        document.getElementById('searchProduction').addEventListener('click', () => {
-            const recordId = document.getElementById('editProductionId').value.trim();
-            
-            if (!recordId) {
-                showNotification('Digite o ID do registro que deseja editar.', 'error');
-                return;
-            }
-            
-            const record = productionHistory.find(r => r.id === recordId);
-            
-            if (!record) {
-                showNotification('Registro não encontrado. Verifique o ID.', 'error');
-                return;
-            }
-            
-            // Preencher formulário
-            document.getElementById('editOperator').value = record.operatorId;
-            document.getElementById('editModel').value = record.model;
-            document.getElementById('editQuantity').value = record.quantity;
-            document.getElementById('editLosses').value = record.losses || 0;
-            document.getElementById('editDate').value = record.date;
-            document.getElementById('editColor').value = record.color || '';
-            document.getElementById('editTime').value = record.time || getRecordTime(record);
-            document.getElementById('editNotes').value = record.notes || '';
-            
-            // Mostrar formulário
-            document.getElementById('editProductionForm').classList.remove('hidden');
-            
-            showNotification('Registro encontrado. Você pode editá-lo agora.', 'success');
-        });
-        
-        // Adicionar ao HTML da aba Estoque, antes da tabela:
-        const estoqueDiv = document.getElementById('estoque');
-        if (estoqueDiv && !document.getElementById('manualEstoqueForm')) {
-            const form = document.createElement('form');
-            form.id = 'manualEstoqueForm';
-            form.innerHTML = `
-                <div class="card" style="margin-bottom:20px;">
-                    <h3 class="section-title">Adicionar Estoque Manualmente</h3>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="manualModel">Modelo</label>
-                            <select id="manualModel" required>
-                                <option value="">Selecione</option>
-                                <option value="bistro">Cadeira Bistro</option>
-                                <option value="alegra">Cadeira Alegra</option>
-                                <option value="folha">Cadeira Folha</option>
-                                <option value="coral">Cadeira Coral</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="manualColor">Cor</label>
-                            <select id="manualColor" required>
-                                <option value="">Selecione</option>
-                                <option value="preto">Preto</option>
-                                <option value="branco">Branco</option>
-                                <option value="terra cota">Terra Cota</option>
-                                <option value="vermelho">Vermelho</option>
-                                <option value="bege">Bege</option>
-                                <option value="cinza grafite">Cinza Grafite</option>
-                                <option value="prata">Prata</option>
-                                <option value="verde agua">Verde Água</option>
-                                <option value="vermelho cebola">Vermelho Cebola</option>
-                                <option value="azul bic">Azul Bic</option>
-                                <option value="azul musco">Azul Musco</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="manualQtd">Quantidade</label>
-                            <input type="number" id="manualQtd" min="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="manualDate">Data</label>
-                            <input type="date" id="manualDate" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn"><i class="fas fa-plus"></i> Adicionar ao Estoque</button>
-                </div>
-            `;
-            estoqueDiv.insertBefore(form, estoqueDiv.querySelector('.card'));
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const model = document.getElementById('manualModel').value;
-                const color = document.getElementById('manualColor').value;
-                const qtd = parseInt(document.getElementById('manualQtd').value);
-                const date = document.getElementById('manualDate').value;
-                if (!model || !color || !qtd || !date) return;
-                try {
-                    await db.collection('production').add({
-                        model,
-                        color,
-                        quantity: qtd,
-                        losses: 0,
-                        operatorName: 'Estoque Inicial',
-                        date,
-                        period: 'manual',
-                        tipo: 'estoque',
-                        month: new Date(date).getFullYear() + '-' + String(new Date(date).getMonth() + 1).padStart(2, '0'),
-                        archived: false,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        createdBy: currentUser ? currentUser.uid : 'manual',
-                        baixa: false
-                    });
-                    showNotification('Estoque adicionado com sucesso!', 'success');
-                    loadEstoque();
-                    form.reset();
-                } catch (err) {
-                    showNotification('Erro ao adicionar estoque.', 'error');
-                }
-            });
+        function getErrorMessage(errorCode) {
+            const errors = { 'auth/invalid-email': 'E-mail inválido.', 'auth/user-not-found': 'Usuário não encontrado.', 'auth/wrong-password': 'Senha incorreta.', 'auth/too-many-requests': 'Muitas tentativas.' };
+            return errors[errorCode] || 'Erro ao fazer login.';
         }
-
-        // Event listener para "Dar Baixa no Estoque"
-        document.getElementById('removeStock').addEventListener('click', async (e) => {
-            e.preventDefault();
-            const model = document.getElementById('stockModel').value;
-            const color = document.getElementById('stockColor').value;
-            const quantityToRemove = parseInt(document.getElementById('stockQuantity').value);
-
-            if (!model || !color || !quantityToRemove) {
-                showNotification('Por favor, preencha todos os campos.', 'error');
-                return;
-            }
-
-            if (quantityToRemove <= 0) {
-                showNotification('Quantidade deve ser maior que zero.', 'error');
-                return;
-            }
-
-            try {
-                // Buscar itens do estoque com esse modelo e cor (não marcados como baixa)
-                const snapshot = await db.collection('production')
-                    .where('model', '==', model)
-                    .where('color', '==', color)
-                    .where('baixa', '!=', true)
-                    .get();
-
-                if (snapshot.empty) {
-                    showNotification('Nenhum item encontrado com esse modelo e cor.', 'warning');
-                    return;
-                }
-
-                let totalAvailable = 0;
-                const docsToUpdate = [];
-
-                // Calcular quantidade total disponível
-                snapshot.forEach(doc => {
-                    const qty = doc.data().quantity || 0;
-                    totalAvailable += qty;
-                    docsToUpdate.push({ id: doc.id, quantity: qty, data: doc.data() });
-                });
-
-                if (totalAvailable < quantityToRemove) {
-                    showNotification(`Quantidade insuficiente! Disponível: ${totalAvailable}, Solicitado: ${quantityToRemove}`, 'error');
-                    return;
-                }
-
-                // Atualizar documentos, marcando como baixa quando a quantidade for removida
-                let remainingToRemove = quantityToRemove;
-                const batch = db.batch();
-
-                for (const doc of docsToUpdate) {
-                    if (remainingToRemove <= 0) break;
-
-                    const docRef = db.collection('production').doc(doc.id);
-                    
-                    if (doc.quantity <= remainingToRemove) {
-                        // Marca este item como baixa (removido completamente)
-                        batch.update(docRef, {
-                            baixa: true,
-                            removedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            removedBy: currentUser ? currentUser.uid : 'unknown',
-                            removedQuantity: doc.quantity
-                        });
-                        remainingToRemove -= doc.quantity;
-                    } else {
-                        // Reduz a quantidade
-                        batch.update(docRef, {
-                            quantity: doc.quantity - remainingToRemove,
-                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        remainingToRemove = 0;
-                    }
-                }
-
-                await batch.commit();
-                showNotification(`${quantityToRemove} unidades removidas do estoque com sucesso!`, 'success');
-                loadEstoque();
-                document.getElementById('stockModel').value = '';
-                document.getElementById('stockColor').value = '';
-                document.getElementById('stockQuantity').value = '';
-            } catch (err) {
-                console.error('Erro ao remover estoque:', err);
-                showNotification('Erro ao remover estoque. Verifique os dados e tente novamente.', 'error');
-            }
-        });
-    </script>
-    <script>
-    // Alternância das abas de modelos no dashboard
-    document.addEventListener('DOMContentLoaded', function() {
-        const modelTabs = document.querySelectorAll('.model-tab');
-        const modelContents = document.querySelectorAll('.model-content');
-        modelTabs.forEach(tab => {
+        
+        function showNotification(message, type) {
+            const styles = {
+                success: { bg: '#00a859', icon: 'check-circle' },
+                error: { bg: '#dc3545', icon: 'exclamation-circle' },
+                warning: { bg: '#ff9800', icon: 'exclamation-triangle' },
+                info: { bg: '#2196f3', icon: 'info-circle' }
+            };
+            const style = styles[type] || styles.error;
+            const notification = document.createElement('div');
+            notification.style.cssText = `position:fixed;top:20px;right:20px;padding:15px 20px;background:${style.bg};color:white;border-radius:6px;z-index:1000;font-weight:600;animation:slideIn 0.3s ease;`;
+            notification.innerHTML = `<i class="fas fa-${style.icon}"></i> ${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => { notification.remove(); }, 3000);
+        }
+        
+        document.querySelectorAll('.model-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                modelTabs.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                const model = this.getAttribute('data-model');
-                modelContents.forEach(content => {
-                    if(content.id === model + '-content') {
-                        content.style.display = 'block';
-                    } else {
-                        content.style.display = 'none';
-                    }
+                const model = this.dataset.model;
+                document.querySelectorAll('.model-content').forEach(content => {
+                    content.style.display = content.id === model + '-content' ? 'block' : 'none';
                 });
             });
         });
-    });
     </script>
 </body>
 </html>
-
