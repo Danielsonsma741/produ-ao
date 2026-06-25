@@ -721,6 +721,35 @@
             margin-bottom: 20px;
             border: 1px solid #ffeaa7;
         }
+
+        /* Estilos para a lista de cores */
+        .color-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .color-list-item:last-child {
+            border-bottom: none;
+        }
+        .color-preview {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        .color-name {
+            font-weight: 500;
+            vertical-align: middle;
+        }
+        .color-actions {
+            display: flex;
+            gap: 8px;
+        }
     </style>
 </head>
 <body>
@@ -834,17 +863,7 @@
                                                     <label for="color"><i class="fas fa-palette"></i> Cor da Cadeira</label>
                                                     <select id="color">
                                                         <option value="">Selecione a cor</option>
-                                                        <option value="preto">Preto</option>
-                                                        <option value="branco">Branco</option>
-                                                        <option value="terra cota">Terra Cota</option>
-                                                        <option value="vermelho">Vermelho</option>
-                                                        <option value="bege">Bege</option>
-                                                        <option value="cinza grafite">Cinza Grafite</option>
-                                                        <option value="prata">Prata</option>
-                                                        <option value="verde agua">Verde Água</option>
-                                                        <option value="vermelho cebola">Vermelho Cebola</option>
-                                                        <option value="azul bic">Azul Bic</option>
-                                                        <option value="azul musco">Azul Musco</option>
+                                                        <!-- Cores serão carregadas dinamicamente -->
                                                     </select>
                                                 </div>
                         <div class="form-group">
@@ -1135,17 +1154,7 @@
                                         <label><i class="fas fa-palette"></i> Cor</label>
                                         <select id="manualColor">
                                             <option value="">Selecione</option>
-                                            <option value="preto">Preto</option>
-                                            <option value="branco">Branco</option>
-                                            <option value="terra cota">Terra Cota</option>
-                                            <option value="vermelho">Vermelho</option>
-                                            <option value="bege">Bege</option>
-                                            <option value="cinza grafite">Cinza Grafite</option>
-                                            <option value="prata">Prata</option>
-                                            <option value="verde agua">Verde Água</option>
-                                            <option value="vermelho cebola">Vermelho Cebola</option>
-                                            <option value="azul bic">Azul Bic</option>
-                                            <option value="azul musco">Azul Musco</option>
+                                            <!-- Cores serão carregadas dinamicamente -->
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -1183,17 +1192,7 @@
                                         <label for="stockColor"><i class="fas fa-palette"></i> Cor da Cadeira</label>
                                         <select id="stockColor">
                                             <option value="">Selecione a cor</option>
-                                            <option value="preto">Preto</option>
-                                            <option value="branco">Branco</option>
-                                            <option value="terra cota">Terra Cota</option>
-                                            <option value="vermelho">Vermelho</option>
-                                            <option value="bege">Bege</option>
-                                            <option value="cinza grafite">Cinza Grafite</option>
-                                            <option value="prata">Prata</option>
-                                            <option value="verde agua">Verde Água</option>
-                                            <option value="vermelho cebola">Vermelho Cebola</option>
-                                            <option value="azul bic">Azul Bic</option>
-                                            <option value="azul musco">Azul Musco</option>
+                                            <!-- Cores serão carregadas dinamicamente -->
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -1507,6 +1506,35 @@
                             <i class="fas fa-save"></i> Salvar Configurações
                         </button>
                     </div>
+
+                    <!-- NOVO CARD: Gerenciamento de Cores -->
+                    <div class="card">
+                        <h3 class="section-title"><i class="fas fa-palette"></i> Gerenciar Cores das Cadeiras</h3>
+                        <p>Adicione ou remova cores disponíveis para as cadeiras. As cores adicionadas aparecerão automaticamente nos formulários de registro e estoque.</p>
+                        
+                        <div class="form-row">
+                            <div class="form-group" style="flex:2;">
+                                <label for="newColorName">Nome da Nova Cor</label>
+                                <input type="text" id="newColorName" placeholder="Ex: Azul Marinho, Verde Limão, ...">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label for="newColorHex">Código Hexadecimal (opcional)</label>
+                                <input type="color" id="newColorHex" value="#6c757d">
+                            </div>
+                            <div class="form-group" style="flex:0.5; display:flex; align-items:flex-end;">
+                                <button id="addColorBtn" class="btn" style="width:100%;">
+                                    <i class="fas fa-plus"></i> Adicionar Cor
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-bottom: 10px; color: #555;">Cores Cadastradas</h4>
+                            <div id="colorsList" style="border: 1px solid #e9ecef; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                                <!-- Lista de cores será carregada dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
                     
                     <div class="card">
                         <h3 class="section-title">Gerenciar Avisos para Operadores</h3>
@@ -1594,17 +1622,7 @@
                                     <label for="editColor"><i class="fas fa-palette"></i> Cor da Cadeira</label>
                                     <select id="editColor">
                                         <option value="">Selecione a cor</option>
-                                        <option value="preto">Preto</option>
-                                        <option value="branco">Branco</option>
-                                        <option value="terra cota">Terra Cota</option>
-                                        <option value="vermelho">Vermelho</option>
-                                        <option value="bege">Bege</option>
-                                        <option value="cinza grafite">Cinza Grafite</option>
-                                        <option value="prata">Prata</option>
-                                        <option value="verde agua">Verde Água</option>
-                                        <option value="vermelho cebola">Vermelho Cebola</option>
-                                        <option value="azul bic">Azul Bic</option>
-                                        <option value="azul musco">Azul Musco</option>
+                                        <!-- Cores serão carregadas dinamicamente -->
                                     </select>
                                 </div>
                             </div>
@@ -1669,6 +1687,7 @@
         let currentUserPassword = '';
         let userRole = 'operador';
         let lastReportContext = null;
+        let availableColors = [];
         
         // Listener para persistência de login
         firebase.auth().onAuthStateChanged(async (user) => {
@@ -1693,7 +1712,7 @@
                     document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
                     
                     setupUserPermissions();
-                    loadSystemData();
+                    await loadSystemData();
                     
                     // Mostrar app, esconder login
                     document.getElementById('loginScreen').classList.add('hidden');
@@ -1937,7 +1956,177 @@
             }
         }
         
+        // --- Funções para gerenciar cores ---
+        const DEFAULT_COLORS = [
+            { name: 'preto', hex: '#000000' },
+            { name: 'branco', hex: '#ffffff' },
+            { name: 'terra cota', hex: '#e2725b' },
+            { name: 'vermelho', hex: '#e74c3c' },
+            { name: 'bege', hex: '#f5f5dc' },
+            { name: 'cinza grafite', hex: '#424242' },
+            { name: 'prata', hex: '#c0c0c0' },
+            { name: 'verde agua', hex: '#7fffd4' },
+            { name: 'vermelho cebola', hex: '#a83232' },
+            { name: 'azul bic', hex: '#1976d2' },
+            { name: 'azul musco', hex: '#274472' }
+        ];
+
+        async function loadColors() {
+            try {
+                const colorsDoc = await db.collection('settings').doc('colors').get();
+                if (colorsDoc.exists && colorsDoc.data().list && colorsDoc.data().list.length > 0) {
+                    availableColors = colorsDoc.data().list;
+                } else {
+                    // Inicializar com cores padrão
+                    availableColors = DEFAULT_COLORS.map(c => ({ ...c }));
+                    await db.collection('settings').doc('colors').set({ list: availableColors });
+                }
+                updateColorSelects();
+                renderColorsList();
+            } catch (error) {
+                console.error('Erro ao carregar cores:', error);
+                availableColors = DEFAULT_COLORS.map(c => ({ ...c }));
+                updateColorSelects();
+                renderColorsList();
+            }
+        }
+
+        function updateColorSelects() {
+            const selects = [
+                document.getElementById('color'),
+                document.getElementById('manualColor'),
+                document.getElementById('stockColor'),
+                document.getElementById('editColor')
+            ];
+
+            selects.forEach(select => {
+                if (!select) return;
+                const currentValue = select.value;
+                // Manter a primeira opção (placeholder)
+                const placeholder = select.querySelector('option[value=""]');
+                select.innerHTML = '';
+                if (placeholder) {
+                    select.appendChild(placeholder);
+                } else {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Selecione a cor';
+                    select.appendChild(opt);
+                }
+
+                availableColors.forEach(color => {
+                    const option = document.createElement('option');
+                    option.value = color.name;
+                    option.textContent = color.name.charAt(0).toUpperCase() + color.name.slice(1);
+                    select.appendChild(option);
+                });
+
+                // Restaurar valor selecionado se ainda for válido
+                if (currentValue && availableColors.some(c => c.name === currentValue)) {
+                    select.value = currentValue;
+                }
+            });
+        }
+
+        function renderColorsList() {
+            const container = document.getElementById('colorsList');
+            if (!container) return;
+
+            if (availableColors.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Nenhuma cor cadastrada.</div>';
+                return;
+            }
+
+            container.innerHTML = availableColors.map((color, index) => `
+                <div class="color-list-item">
+                    <div>
+                        <span class="color-preview" style="background-color: ${color.hex || '#ccc'};"></span>
+                        <span class="color-name">${color.name.charAt(0).toUpperCase() + color.name.slice(1)}</span>
+                    </div>
+                    <div class="color-actions">
+                        <button class="action-btn edit-btn" onclick="editColor(${index})">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="action-btn delete-btn" onclick="deleteColor(${index})">
+                            <i class="fas fa-trash-alt"></i> Remover
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.editColor = function(index) {
+            const color = availableColors[index];
+            if (!color) return;
+
+            const newName = prompt('Digite o novo nome da cor:', color.name);
+            if (newName && newName.trim() && newName.trim() !== color.name) {
+                // Verificar se o nome já existe
+                if (availableColors.some((c, i) => i !== index && c.name.toLowerCase() === newName.trim().toLowerCase())) {
+                    showNotification('Já existe uma cor com este nome.', 'error');
+                    return;
+                }
+                availableColors[index].name = newName.trim().toLowerCase();
+                saveColors();
+                showNotification('Cor atualizada com sucesso!', 'success');
+            } else if (newName !== null && newName.trim() === color.name) {
+                showNotification('Nenhuma alteração feita.', 'info');
+            }
+        };
+
+        window.deleteColor = function(index) {
+            const color = availableColors[index];
+            if (!color) return;
+
+            if (availableColors.length <= 1) {
+                showNotification('Não é possível remover a última cor. Mantenha pelo menos uma cor disponível.', 'warning');
+                return;
+            }
+
+            if (confirm(`Deseja realmente remover a cor "${color.name}"?`)) {
+                availableColors.splice(index, 1);
+                saveColors();
+                showNotification('Cor removida com sucesso!', 'success');
+            }
+        };
+
+        async function saveColors() {
+            try {
+                await db.collection('settings').doc('colors').set({ list: availableColors });
+                updateColorSelects();
+                renderColorsList();
+            } catch (error) {
+                console.error('Erro ao salvar cores:', error);
+                showNotification('Erro ao salvar as cores.', 'error');
+            }
+        }
+
+        // Adicionar nova cor
+        document.getElementById('addColorBtn').addEventListener('click', async () => {
+            const nameInput = document.getElementById('newColorName');
+            const hexInput = document.getElementById('newColorHex');
+            const name = nameInput.value.trim();
+            const hex = hexInput.value;
+
+            if (!name) {
+                showNotification('Digite o nome da nova cor.', 'error');
+                return;
+            }
+
+            if (availableColors.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+                showNotification('Esta cor já está cadastrada.', 'error');
+                return;
+            }
+
+            availableColors.push({ name: name.toLowerCase(), hex: hex });
+            await saveColors();
+            nameInput.value = '';
+            showNotification(`Cor "${name}" adicionada com sucesso!`, 'success');
+        });
+
+        // Carregar cores ao iniciar
         async function loadSystemData() {
+            await loadColors();
             await loadOperators();
             await checkMonthlyReset();
             await loadProductionHistory();
